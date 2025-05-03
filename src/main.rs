@@ -60,13 +60,26 @@ impl Piece {
 
 #[derive(Resource)]
 struct Board {
+    player_1_color: PieceColor,
     turn: PieceColor,
     pieces: [[Option<Piece>; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize],
 }
 
+// impl Board {
+//     fn get_possible_moves(&self, x : u8, y : u8) -> Vec<(u8, u8)> {
+//         self.pieces[x as usize][y as usize]
+//     }
+// }
+
 // custom implementation for unusual values
-impl Default for Board {
-    fn default() -> Self {
+impl Board {
+    fn new(player_1_color : PieceColor) -> Self {
+
+        let player_2_color = match player_1_color {
+            PieceColor::Black => {PieceColor::White}
+            PieceColor::White => {PieceColor::Black}
+        };
+
         let mut pieces: [[Option<Piece>; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize] =
             [[None; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
         for (idx, person) in [PiecePerson::Rook, PiecePerson::Knight, PiecePerson::Bishop]
@@ -74,36 +87,36 @@ impl Default for Board {
             .enumerate()
         {
             pieces[idx] = [
-                Piece::new(PieceColor::Black, *person),
-                Piece::new(PieceColor::Black, PiecePerson::Pawn),
+                Piece::new(player_2_color, *person),
+                Piece::new(player_2_color, PiecePerson::Pawn),
                 None,
                 None,
                 None,
                 None,
-                Piece::new(PieceColor::White, PiecePerson::Pawn),
-                Piece::new(PieceColor::White, *person),
+                Piece::new(player_1_color, PiecePerson::Pawn),
+                Piece::new(player_1_color, *person),
             ];
         }
 
         pieces[3] = [
-            Piece::new(PieceColor::Black, PiecePerson::King),
-            Piece::new(PieceColor::Black, PiecePerson::Pawn),
+            Piece::new(player_2_color, PiecePerson::King),
+            Piece::new(player_2_color, PiecePerson::Pawn),
             None,
             None,
             None,
             None,
-            Piece::new(PieceColor::White, PiecePerson::Pawn),
-            Piece::new(PieceColor::White, PiecePerson::Queen),
+            Piece::new(player_1_color, PiecePerson::Pawn),
+            Piece::new(player_1_color, PiecePerson::Queen),
         ];
         pieces[4] = [
-            Piece::new(PieceColor::Black, PiecePerson::Queen),
-            Piece::new(PieceColor::Black, PiecePerson::Pawn),
+            Piece::new(player_2_color, PiecePerson::Queen),
+            Piece::new(player_2_color, PiecePerson::Pawn),
             None,
             None,
             None,
             None,
-            Piece::new(PieceColor::White, PiecePerson::Pawn),
-            Piece::new(PieceColor::White, PiecePerson::King),
+            Piece::new(player_1_color, PiecePerson::Pawn),
+            Piece::new(player_1_color, PiecePerson::King),
         ];
 
         for (idx, person) in [PiecePerson::Rook, PiecePerson::Knight, PiecePerson::Bishop]
@@ -124,6 +137,7 @@ impl Default for Board {
         }
 
         Board {
+            player_1_color,
             turn: PieceColor::White,
             pieces,
         }
@@ -146,9 +160,7 @@ fn main() {
             .set(ImagePlugin::default_linear()), // default_nearest for pixel art
         Wireframe2dPlugin::default(),
     ))
-    .insert_resource(Board {
-        ..Default::default()
-    })
+    .insert_resource(Board::new(PieceColor::White))
     .add_systems(Startup, setup);
     // #[cfg(not(target_arch = "wasm32"))]
     app.add_systems(Update, toggle_wireframe);
