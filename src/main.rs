@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
 const BOARD_TILE_DIM: i32 = 8;
 const DEFAULT_BOARD_TILE_SIZE: f32 = 100.0;
-const DEFAULT_BOARD_HEIGHT: f32 = (BOARD_TILE_DIM) as f32 * DEFAULT_BOARD_TILE_SIZE;
+const DEFAULT_BOARD_HEIGHT: f32 = BOARD_TILE_DIM as f32 * DEFAULT_BOARD_TILE_SIZE;
 
 const WHITE_TILE_COLOR: Color = Color::srgb_u8(254, 207, 159);
 
@@ -35,7 +35,7 @@ struct Piece {
 
 impl Piece {
     fn new(color: PieceColor, piece_person: PiecePerson) -> Option<Self> {
-        Option::Some(Piece {
+        Some(Piece {
             color,
             piece_person,
             id: None,
@@ -168,8 +168,8 @@ fn setup(
     let width = window.width();
     let height = window.height();
 
-    let sizex = width / BOARD_TILE_DIM as f32;
-    let sizey = height / BOARD_TILE_DIM as f32;
+    let size_x = width / BOARD_TILE_DIM as f32;
+    let size_y = height / BOARD_TILE_DIM as f32;
 
     for (idx, row) in board.pieces.iter_mut().enumerate() {
         for (idy, item) in row.iter_mut().enumerate() {
@@ -182,13 +182,13 @@ fn setup(
 
             let transform = Transform::from_xyz(
                 // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
-                -(width / 2.) + (idx as f32 * sizex) + (sizex / 2.),
-                (height / 2.) - (idy as f32 * sizey) - (sizey / 2.),
+                -(width / 2.) + (idx as f32 * size_x) + (size_x / 2.),
+                (height / 2.) - (idy as f32 * size_y) - (size_y / 2.),
                 0.0,
             );
 
             commands.spawn((
-                Mesh2d(meshes.add(Rectangle::new(sizex, sizey))),
+                Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
                 MeshMaterial2d(materials.add(color)),
                 transform,
             ));
@@ -196,12 +196,12 @@ fn setup(
             match item {
                 Some(piece) => {
                     // load the piece sprite using commands and store the id of the piece in the board resource
-                    piece.id = Option::Some(
+                    piece.id = Some(
                         commands
                             .spawn((
                                 Sprite {
                                     image: asset_server.load(piece.get_asset_path()),
-                                    custom_size: Some(Vec2::new(sizex, sizey)),
+                                    custom_size: Some(Vec2::new(size_x, size_y)),
                                     ..default()
                                 },
                                 transform,
