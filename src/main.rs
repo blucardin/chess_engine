@@ -10,7 +10,7 @@ const BLACK_TILE_COLOR: Color = Color::srgb_u8(210, 140, 69);
 
 const PIECES_FOLDER: &str = "pieces-basic-png";
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PieceColor {
     Black,
     White,
@@ -18,12 +18,18 @@ enum PieceColor {
 
 #[derive(Debug, Clone, Copy)]
 enum PiecePerson {
-    Pawn,
+    Pawn { first_move: Option<i32> },
     Rook,
     Knight,
     Bishop,
     Queen,
     King,
+}
+
+impl PiecePerson {
+    fn new_pawn() -> Self {
+        PiecePerson::Pawn { first_move: None }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -34,16 +40,16 @@ struct Piece {
 }
 
 impl Piece {
-    fn new(color: PieceColor, piece_person: PiecePerson) -> Option<Self> {
-        Some(Piece {
+    fn new(color: PieceColor, piece_person: PiecePerson) -> Self {
+        Piece {
             color,
             piece_person,
             id: None,
-        })
+        }
     }
     fn get_asset_path(&self) -> String {
         let name: &str = match self.piece_person {
-            PiecePerson::Pawn => "pawn",
+            PiecePerson::Pawn { first_move: _ } => "pawn",
             PiecePerson::Rook => "rook",
             PiecePerson::Knight => "knight",
             PiecePerson::Bishop => "bishop",
@@ -63,83 +69,90 @@ struct Board {
     player_1_color: PieceColor,
     turn: PieceColor,
     pieces: [[Option<Piece>; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize],
+    move_number: i32,
 }
-
-// impl Board {
-//     fn get_possible_moves(&self, x : u8, y : u8) -> Vec<(u8, u8)> {
-//         self.pieces[x as usize][y as usize]
-//     }
-// }
 
 // custom implementation for unusual values
 impl Board {
-    fn new(player_1_color : PieceColor) -> Self {
+    // fn get_possible_moves(&self, x: u8, y: u8) -> Option<Vec<(u8, u8)>> {
+    //     match self.pieces[x as usize][y as usize] {
+    //         Some(piece) if piece.color == self.turn => {
+    //             match piece.piece_person {
+    //                 PiecePerson::Pawn() => {
+    //                     let going_up = piece.color == self.player_1_color;
+    //                     
+    //                     
+    //                 }
+    //                 PiecePerson::Rook => {}
+    //                 PiecePerson::Knight => {}
+    //                 PiecePerson::Bishop => {}
+    //                 PiecePerson::Queen => {}
+    //                 PiecePerson::King => {}
+    //             }
+    //         }
+    // 
+    //         Some(piece) => { None }
+    //         None => { None }
+    //     }
+    // }
 
+    fn new_row(right_piece: Piece, left_piece: Piece) -> [Option<Piece>; BOARD_TILE_DIM as usize] {
+        [
+            Some(right_piece),
+            Some(Piece::new(right_piece.color, PiecePerson::new_pawn())),
+            None,
+            None,
+            None,
+            None,
+            Some(Piece::new(left_piece.color, PiecePerson::new_pawn())),
+            Some(left_piece),
+        ]
+    }
+
+    fn new(player_1_color: PieceColor) -> Self {
         let player_2_color = match player_1_color {
-            PieceColor::Black => {PieceColor::White}
-            PieceColor::White => {PieceColor::Black}
+            PieceColor::Black => { PieceColor::White }
+            PieceColor::White => { PieceColor::Black }
         };
 
         let mut pieces: [[Option<Piece>; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize] =
             [[None; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
+
         for (idx, person) in [PiecePerson::Rook, PiecePerson::Knight, PiecePerson::Bishop]
             .iter()
             .enumerate()
         {
-            pieces[idx] = [
+            pieces[idx] = Board::new_row(
                 Piece::new(player_2_color, *person),
-                Piece::new(player_2_color, PiecePerson::Pawn),
-                None,
-                None,
-                None,
-                None,
-                Piece::new(player_1_color, PiecePerson::Pawn),
                 Piece::new(player_1_color, *person),
-            ];
+            );
         }
 
-        pieces[3] = [
+        pieces[3] = Board::new_row(
             Piece::new(player_2_color, PiecePerson::King),
-            Piece::new(player_2_color, PiecePerson::Pawn),
-            None,
-            None,
-            None,
-            None,
-            Piece::new(player_1_color, PiecePerson::Pawn),
             Piece::new(player_1_color, PiecePerson::Queen),
-        ];
-        pieces[4] = [
+        );
+        pieces[4] = Board::new_row(
             Piece::new(player_2_color, PiecePerson::Queen),
-            Piece::new(player_2_color, PiecePerson::Pawn),
-            None,
-            None,
-            None,
-            None,
-            Piece::new(player_1_color, PiecePerson::Pawn),
             Piece::new(player_1_color, PiecePerson::King),
-        ];
+        );
 
         for (idx, person) in [PiecePerson::Rook, PiecePerson::Knight, PiecePerson::Bishop]
             .iter()
             .rev()
             .enumerate()
         {
-            pieces[idx + 5] = [
+            pieces[idx + 5] = Board::new_row(
                 Piece::new(PieceColor::Black, *person),
-                Piece::new(PieceColor::Black, PiecePerson::Pawn),
-                None,
-                None,
-                None,
-                None,
-                Piece::new(PieceColor::White, PiecePerson::Pawn),
                 Piece::new(PieceColor::White, *person),
-            ];
+            );
         }
 
         Board {
             player_1_color,
             turn: PieceColor::White,
             pieces,
+            move_number: 0,
         }
     }
 }
@@ -160,8 +173,8 @@ fn main() {
             .set(ImagePlugin::default_linear()), // default_nearest for pixel art
         Wireframe2dPlugin::default(),
     ))
-    .insert_resource(Board::new(PieceColor::White))
-    .add_systems(Startup, setup);
+        .insert_resource(Board::new(PieceColor::White))
+        .add_systems(Startup, setup);
     // #[cfg(not(target_arch = "wasm32"))]
     app.add_systems(Update, toggle_wireframe);
     app.run();
