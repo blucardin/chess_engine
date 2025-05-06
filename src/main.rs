@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
+use std::ops;
+
 const BOARD_TILE_DIM: i32 = 8;
 const DEFAULT_BOARD_TILE_SIZE: f32 = 100.0;
 const DEFAULT_BOARD_HEIGHT: f32 = BOARD_TILE_DIM as f32 * DEFAULT_BOARD_TILE_SIZE;
@@ -9,6 +11,31 @@ const WHITE_TILE_COLOR: Color = Color::srgb_u8(254, 207, 159);
 const BLACK_TILE_COLOR: Color = Color::srgb_u8(210, 140, 69);
 
 const PIECES_FOLDER: &str = "pieces-basic-png";
+
+const ROOK_SEARCH_OFFSETS: [(isize, isize); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+const BISHOP_SEARCH_OFFSETS: [(isize, isize); 4] = [(1, 1), (-1, 1), (-1, -1), (1, -1)];
+
+const KING_SEARCH_OFFSETS: [(isize, isize); 8] = [
+    (1, -1),
+    (1, 0),
+    (1, 1),
+    (0, -1),
+    (0, 1),
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+];
+
+const KNIGHT_SEARCH_OFFSETS: [(isize, isize); 8] = [
+    (1, 2),
+    (2, 1),
+    (2, -1),
+    (1, -2),
+    (-1, -2),
+    (-2, -1),
+    (-2, 1),
+    (-1, 2),
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PieceColor {
@@ -64,7 +91,7 @@ impl Piece {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 struct Board {
     player_1_color: PieceColor,
     turn: PieceColor,
@@ -76,6 +103,16 @@ struct Board {
 struct Coordinate {
     x: isize,
     y: isize,
+}
+
+impl ops::Add<(isize, isize)> for Coordinate {
+    type Output = Coordinate;
+    fn add(self, rhs: (isize, isize)) -> Self::Output {
+        Self::Output {
+            x: self.x + rhs.0,
+            y: self.y + rhs.1,
+        }
+    }
 }
 
 enum Side {
@@ -91,6 +128,7 @@ enum Move {
     Promote {
         position: Coordinate,
         move_type: MoveType,
+        piece: Piece,
     },
     Castle {
         side: Side,
@@ -99,8 +137,8 @@ enum Move {
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum Square {
-    Some(Piece),
-    None,
+    Filled(Piece),
+    Empty,
     Boundary,
 }
 
@@ -125,11 +163,11 @@ impl Board {
     }
 
     fn possible_jump(&self, position: &Coordinate) -> bool {
-        self.get_square(position) == Square::None
+        self.get_square(position) == Square::Empty
     }
 
     fn possible_take(&self, position: &Coordinate) -> bool {
-        if let Square::Some(piece) = self.get_square(position) {
+        if let Square::Filled(piece) = self.get_square(position) {
             piece.color != self.turn
         } else {
             false
@@ -138,8 +176,8 @@ impl Board {
 
     fn possible_move(&self, position: &Coordinate) -> Option<MoveType> {
         match self.get_square(position) {
-            Square::None => Some(MoveType::Jump),
-            Square::Some(piece) => {
+            Square::Empty => Some(MoveType::Jump),
+            Square::Filled(piece) => {
                 if piece.color != self.turn {
                     Some(MoveType::Take)
                 } else {
@@ -150,13 +188,10 @@ impl Board {
         }
     }
 
-    fn cast_ray(&self, position: &Coordinate, offsets: Vec<(isize, isize)>) -> Vec<Move> {
+    fn cast_ray(&self, position: &Coordinate, offsets: &[(isize, isize)]) -> Vec<Move> {
         let mut output = Vec::new();
-        for (x_offset, y_offset) in offsets {
-            let mut sight = Coordinate {
-                x: position.x + x_offset,
-                y: position.y + y_offset,
-            };
+        for offset in offsets {
+            let mut sight = *position + *offset;
 
             while let Some(move_type) = self.possible_move(&sight) {
                 output.push(Move::Regular {
@@ -168,20 +203,16 @@ impl Board {
                     break;
                 }
 
-                sight.x += x_offset;
-                sight.y += y_offset;
+                sight = sight + *offset;
             }
         }
         output
     }
 
-    fn check_squares(&self, position: &Coordinate, offsets: Vec<(isize, isize)>) -> Vec<Move> {
+    fn check_squares(&self, position: &Coordinate, offsets: &[(isize, isize)]) -> Vec<Move> {
         let mut output = Vec::new();
-        for (x_offset, y_offset) in offsets {
-            let sight = Coordinate {
-                x: position.x + x_offset,
-                y: position.y + y_offset,
-            };
+        for offset in offsets {
+            let sight = *position + *offset;
             if let Some(move_type) = self.possible_move(&sight) {
                 output.push(Move::Regular {
                     position: sight,
@@ -193,29 +224,25 @@ impl Board {
     }
 
     fn get_possible_moves(&self, position: Coordinate) -> Option<Vec<Move>> {
-        match self.get_square(&position) {
-            Square::Some(piece) => {
-                if piece.color != self.turn {
-                    return None;
-                }
+        if let Square::Filled(piece) = self.get_square(&position) {
+            if piece.color != self.turn {
+                return None;
+            }
 
-                let x = position.x;
-                let y = position.y;
+            let mut output = Vec::new();
 
-                let mut output = Vec::new();
-
-                Some(match piece.piece_person {
+            Some(self.filter_legal_moves(
+                position,
+                match piece.piece_person {
                     PiecePerson::Pawn { first_move } => {
                         let going_up = self.turn == self.player_1_color;
                         let direction: isize = if going_up { -1 } else { 1 };
 
                         // TODO: implement pawn promotion
                         // Check if the pawn is on the last row of it's direction, these become 3 separate moves, Knight, Rook, and Queen
+                        if going_up {}
 
-                        let front = Coordinate {
-                            x: x,
-                            y: y + (1 * direction),
-                        };
+                        let front = position + (0, 1 * direction);
                         if self.possible_jump(&front) {
                             output.push(Move::Regular {
                                 position: front,
@@ -224,10 +251,7 @@ impl Board {
                         }
 
                         for i in [-1, 1] {
-                            let front_lr = Coordinate {
-                                x: x + i,
-                                y: y + (1 * direction),
-                            };
+                            let front_lr = position + (i, 1 * direction);
                             if self.possible_take(&front_lr) {
                                 output.push(Move::Regular {
                                     position: front_lr,
@@ -237,10 +261,7 @@ impl Board {
                         }
 
                         if first_move.is_none() {
-                            let front = Coordinate {
-                                x: x,
-                                y: y + (2 * direction),
-                            };
+                            let front = position + (0, 2 * direction);
                             if self.possible_jump(&front) {
                                 output.push(Move::Regular {
                                     position: front,
@@ -251,68 +272,182 @@ impl Board {
 
                         output
                     }
-                    PiecePerson::Rook => {
-                        self.cast_ray(&position, vec![(1, 0), (-1, 0), (0, 1), (0, -1)])
-                    }
-                    PiecePerson::Bishop => {
-                        self.cast_ray(&position, vec![(1, 1), (-1, 1), (-1, -1), (1, -1)])
-                    }
+                    PiecePerson::Rook => self.cast_ray(&position, &ROOK_SEARCH_OFFSETS),
+                    PiecePerson::Bishop => self.cast_ray(&position, &BISHOP_SEARCH_OFFSETS),
                     PiecePerson::Queen => self.cast_ray(
                         &position,
-                        vec![
-                            (1, 0),
-                            (-1, 0),
-                            (0, 1),
-                            (0, -1),
-                            (1, 1),
-                            (-1, 1),
-                            (-1, -1),
-                            (1, -1),
-                        ],
+                        &[ROOK_SEARCH_OFFSETS, BISHOP_SEARCH_OFFSETS].concat(),
                     ),
-                    PiecePerson::King => self.check_squares(
-                        &position,
-                        vec![
-                            (1, -1),
-                            (1, 0),
-                            (1, 1),
-                            (0, -1),
-                            (0, 1),
-                            (-1, -1),
-                            (-1, 0),
-                            (-1, 1),
-                        ],
-                    ),
-                    PiecePerson::Knight => self.check_squares(
-                        &position,
-                        vec![
-                            (1, 2),
-                            (2, 1),
-                            (2, -1),
-                            (1, -2),
-                            (-1, -2),
-                            (-2, -1),
-                            (-2, 1),
-                            (-1, 2),
-                        ],
-                    ),
-                })
+                    PiecePerson::King => self.check_squares(&position, &KING_SEARCH_OFFSETS),
+                    PiecePerson::Knight => self.check_squares(&position, &KNIGHT_SEARCH_OFFSETS),
+                },
+            ))
+        } else {
+            None
+        }
+    }
+
+    fn filter_legal_moves(&self, position: Coordinate, moves: Vec<Move>) -> Vec<Move> {
+        // let mut output = Vec::new();
+        // for piece_move in moves {
+        //     let mut test_board = self.clone();
+        //     test_board.apply_move(position, &piece_move);
+        //     if !test_board.check_check() {
+        //         output.push(piece_move);
+        //     }
+        // }
+        // output
+
+        moves
+            .into_iter()
+            .filter(|piece_move| {
+                let mut test_board = self.clone();
+                test_board.apply_move(position, &piece_move);
+                !test_board.check_check()
+            })
+            .collect()
+    }
+
+    fn get_all_moves(&self) -> Vec<Move> {
+        let mut output = Vec::new();
+        for (idx, row) in self.squares.iter().enumerate() {
+            for (idy, square) in row.iter().enumerate() {
+                if let Some(piece_moves) = self.get_possible_moves(Coordinate {
+                    x: idx as isize,
+                    y: idy as isize,
+                }) {
+                    output.extend(piece_moves);
+                }
             }
-            Square::None => None,
-            Square::Boundary => None,
+        }
+        output
+    }
+
+    fn locate_king(&self) -> Coordinate {
+        for (idx, row) in self.squares.iter().enumerate() {
+            for (idy, square) in row.iter().enumerate() {
+                if let Square::Filled(Piece {
+                    color,
+                    id,
+                    piece_person: PiecePerson::King,
+                }) = square
+                {
+                    return Coordinate {
+                        x: idx as isize,
+                        y: idy as isize,
+                    };
+                }
+            }
+        }
+        panic!("NO KING ON BOARD")
+    }
+
+    fn check_check(&self) -> bool {
+        let king_location = self.locate_king();
+
+        for (piece_person, offsets) in [
+            (PiecePerson::Rook, ROOK_SEARCH_OFFSETS),
+            (PiecePerson::Bishop, BISHOP_SEARCH_OFFSETS),
+        ] {
+            'rays: for offset in offsets {
+                let mut sight = king_location;
+
+                'squares: loop {
+                    sight = sight + offset;
+                    match self.get_square(&sight) {
+                        Square::Empty => {
+                            continue 'squares;
+                        }
+
+                        Square::Filled(piece) => {
+                            if piece.color == self.turn {
+                                continue 'rays;
+                            }
+
+                            if piece.piece_person == PiecePerson::Queen
+                                || piece.piece_person == piece_person
+                            {
+                                return true;
+                            }
+                        }
+                        Square::Boundary => {
+                            continue 'rays;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (piece_person, offsets) in [
+            (PiecePerson::King, KING_SEARCH_OFFSETS),
+            (PiecePerson::Knight, KNIGHT_SEARCH_OFFSETS),
+        ] {
+            for offset in offsets {
+                if let Square::Filled(piece) = self.get_square(&(king_location + offset)) {
+                    if piece.color != self.turn && piece.piece_person == piece_person {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        let going_up = self.turn == self.player_1_color;
+        let threatening_pawn_y_offset: isize = if going_up { -1 } else { 1 };
+        let offsets = [
+            (-1, threatening_pawn_y_offset),
+            (0, threatening_pawn_y_offset),
+        ];
+
+        for offset in offsets {
+            if let Square::Filled(piece) = self.get_square(&(king_location + offset)) {
+                if let PiecePerson::Pawn { .. } = piece.piece_person {
+                    if piece.color != self.turn {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // TODO: check for en passant
+        false
+    }
+
+    fn apply_move(&mut self, initial_position: Coordinate, instuction: &Move) -> Option<Piece> {
+        match instuction {
+            Move::Regular {
+                position: final_position,
+                move_type,
+            } => {
+                let final_square =
+                    self.squares[final_position.x as usize][final_position.y as usize];
+                self.squares[final_position.x as usize][final_position.y as usize] =
+                    self.squares[initial_position.x as usize][initial_position.y as usize];
+
+                if let Square::Filled(piece) = final_square {
+                    Some(piece)
+                } else {
+                    None
+                }
+            }
+            Move::Promote { .. } => {
+                todo!("Promote move")
+            }
+            Move::Castle { .. } => {
+                todo!("Castle")
+            }
         }
     }
 
     fn new_row(right_piece: Piece, left_piece: Piece) -> [Square; BOARD_TILE_DIM as usize] {
         [
-            Square::Some(right_piece),
-            Square::Some(Piece::new(right_piece.color, PiecePerson::new_pawn())),
-            Square::None,
-            Square::None,
-            Square::None,
-            Square::None,
-            Square::Some(Piece::new(left_piece.color, PiecePerson::new_pawn())),
-            Square::Some(left_piece),
+            Square::Filled(right_piece),
+            Square::Filled(Piece::new(right_piece.color, PiecePerson::new_pawn())),
+            Square::Empty,
+            Square::Empty,
+            Square::Empty,
+            Square::Empty,
+            Square::Filled(Piece::new(left_piece.color, PiecePerson::new_pawn())),
+            Square::Filled(left_piece),
         ]
     }
 
@@ -323,7 +458,7 @@ impl Board {
         };
 
         let mut squares: [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize] =
-            [[Square::None; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
+            [[Square::Empty; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
 
         for (idx, person) in [PiecePerson::Rook, PiecePerson::Knight, PiecePerson::Bishop]
             .iter()
@@ -425,7 +560,7 @@ fn setup(
                 transform,
             ));
 
-            if let Square::Some(piece) = square {
+            if let Square::Filled(piece) = square {
                 // load the piece sprite using commands and store the id of the piece in the board resource
                 piece.id = Some(
                     commands
