@@ -412,8 +412,14 @@ impl Board {
         false
     }
 
-    fn apply_move(&mut self, initial_position: Coordinate, instuction: &Move) -> Option<Piece> {
-        match instuction {
+    fn apply_move(&mut self, initial_position: Coordinate, instruction: &Move) -> Vec<Piece> {
+        
+        match self.turn {
+            PieceColor::Black => self.turn = PieceColor::White,
+            PieceColor::White => self.turn = PieceColor::Black,
+        }
+        
+        match instruction {
             Move::Regular {
                 position: final_position,
                 move_type,
@@ -424,9 +430,9 @@ impl Board {
                     self.squares[initial_position.x as usize][initial_position.y as usize];
 
                 if let Square::Filled(piece) = final_square {
-                    Some(piece)
+                    vec![piece]
                 } else {
-                    None
+                    vec![]
                 }
             }
             Move::Promote { .. } => {
