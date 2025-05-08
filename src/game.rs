@@ -1,7 +1,5 @@
 use bevy::input::common_conditions::*;
 use bevy::prelude::*;
-use bevy::render::mesh::MeshTrianglesError::PositionsFormat;
-use bevy::window::PrimaryWindow;
 use std::ops;
 
 const BOARD_TILE_DIM: i32 = 8;
@@ -248,7 +246,7 @@ impl Board {
     }
 
     fn get_possible_moves(&self, position: Coordinate) -> Option<Vec<Move>> {
-        println!("{:?}", self.get_square(&position));
+
         if let Square::Filled(piece) = self.get_square(&position) {
             if piece.color != self.turn {
                 return None;
@@ -273,6 +271,18 @@ impl Board {
                                 final_position: front,
                                 move_type: MoveType::Jump,
                             });
+
+                            if first_move.is_none() {
+                                let front = position + (0, 2 * direction);
+                                if self.possible_jump(&front) {
+                                    output.push(Move::Regular {
+                                        initial_position: position,
+                                        final_position: front,
+                                        move_type: MoveType::Jump,
+                                    });
+                                }
+                            }
+                            
                         }
 
                         for i in [-1, 1] {
@@ -286,16 +296,7 @@ impl Board {
                             }
                         }
 
-                        if first_move.is_none() {
-                            let front = position + (0, 2 * direction);
-                            if self.possible_jump(&front) {
-                                output.push(Move::Regular {
-                                    initial_position: position,
-                                    final_position: front,
-                                    move_type: MoveType::Jump,
-                                });
-                            }
-                        }
+                        // TODO: implement en passant
 
                         output
                     }
@@ -452,13 +453,23 @@ impl Board {
                 final_position,
                 move_type,
             } => {
-                let final_square =
-                    self.squares[final_position.x as usize][final_position.y as usize];
+                
+                let fx = final_position.x as usize;
+                let fy = final_position.y as usize;
+                let ix = initial_position.x as usize;
+                let iy = initial_position.y as usize;
+                
+                let final_square = self.squares[fx][fy];
 
-                self.squares[final_position.x as usize][final_position.y as usize] =
-                    self.squares[initial_position.x as usize][initial_position.y as usize];
+                self.squares[fx][fy] = self.squares[ix][iy];
 
-                self.squares[initial_position.x as usize][initial_position.y as usize] = Square::Empty;
+                self.squares[ix][iy] = Square::Empty;
+
+                if let Square::Filled(Piece{ color, piece_person:PiecePerson::Pawn { first_move: Option::None }, id }) = self.squares[fx][fy] {
+                    self.squares[fx][fy] = Square::Filled(Piece{ color, piece_person:PiecePerson::Pawn { first_move: Some(self.move_number) }, id });
+                }
+                
+                self.move_number += 1;
 
                 if let Square::Filled(piece) = final_square {
                     vec![piece]
