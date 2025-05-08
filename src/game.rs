@@ -116,7 +116,7 @@ pub(crate) struct Board {
     move_number: i32,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 struct Coordinate {
     x: isize,
     y: isize,
@@ -132,22 +132,27 @@ impl ops::Add<(isize, isize)> for Coordinate {
     }
 }
 
+#[derive(Debug)]
 enum Side {
     Left,
     Right,
 }
 
+#[derive(Debug)]
 enum Move {
     Regular {
-        position: Coordinate,
+        initial_position: Coordinate,
+        final_position: Coordinate,
         move_type: MoveType,
     },
     Promote {
-        position: Coordinate,
+        initial_position: Coordinate,
+        final_position: Coordinate,
         move_type: MoveType,
-        piece: Piece,
+        piece_person: PiecePerson,
     },
     Castle {
+        initial_position: Coordinate,
         side: Side,
     },
 }
@@ -159,7 +164,7 @@ enum Square {
     Boundary,
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 enum MoveType {
     Jump,
     Take,
@@ -212,7 +217,8 @@ impl Board {
 
             while let Some(move_type) = self.possible_move(&sight) {
                 output.push(Move::Regular {
-                    position: sight,
+                    initial_position: *position,
+                    final_position: sight,
                     move_type: move_type,
                 });
 
@@ -232,7 +238,8 @@ impl Board {
             let sight = *position + *offset;
             if let Some(move_type) = self.possible_move(&sight) {
                 output.push(Move::Regular {
-                    position: sight,
+                    initial_position: *position,
+                    final_position: sight,
                     move_type: move_type,
                 });
             }
@@ -241,6 +248,7 @@ impl Board {
     }
 
     fn get_possible_moves(&self, position: Coordinate) -> Option<Vec<Move>> {
+        println!("{:?}", self.get_square(&position));
         if let Square::Filled(piece) = self.get_square(&position) {
             if piece.color != self.turn {
                 return None;
@@ -249,7 +257,6 @@ impl Board {
             let mut output = Vec::new();
 
             Some(self.filter_legal_moves(
-                position,
                 match piece.piece_person {
                     PiecePerson::Pawn { first_move } => {
                         let going_up = self.turn == self.player_1_color;
@@ -262,7 +269,8 @@ impl Board {
                         let front = position + (0, 1 * direction);
                         if self.possible_jump(&front) {
                             output.push(Move::Regular {
-                                position: front,
+                                initial_position: position,
+                                final_position: front,
                                 move_type: MoveType::Jump,
                             });
                         }
@@ -271,7 +279,8 @@ impl Board {
                             let front_lr = position + (i, 1 * direction);
                             if self.possible_take(&front_lr) {
                                 output.push(Move::Regular {
-                                    position: front_lr,
+                                    initial_position: position,
+                                    final_position: front_lr,
                                     move_type: MoveType::Take,
                                 });
                             }
@@ -281,7 +290,8 @@ impl Board {
                             let front = position + (0, 2 * direction);
                             if self.possible_jump(&front) {
                                 output.push(Move::Regular {
-                                    position: front,
+                                    initial_position: position,
+                                    final_position: front,
                                     move_type: MoveType::Jump,
                                 });
                             }
@@ -304,7 +314,7 @@ impl Board {
         }
     }
 
-    fn filter_legal_moves(&self, position: Coordinate, moves: Vec<Move>) -> Vec<Move> {
+    fn filter_legal_moves(&self, moves: Vec<Move>) -> Vec<Move> {
         // let mut output = Vec::new();
         // for piece_move in moves {
         //     let mut test_board = self.clone();
@@ -314,15 +324,15 @@ impl Board {
         //     }
         // }
         // output
-
+        
         moves
-            .into_iter()
-            .filter(|piece_move| {
-                let mut test_board = self.clone();
-                test_board.apply_move(position, &piece_move);
-                !test_board.check_check()
-            })
-            .collect()
+        //     .into_iter()
+        //     .filter(|piece_move| {
+        //         let mut test_board = self.clone();
+        //         test_board.apply_move(&piece_move);
+        //         !test_board.check_check()
+        //     })
+        //     .collect()
     }
 
     fn get_all_moves(&self) -> Vec<Move> {
@@ -343,8 +353,9 @@ impl Board {
     fn locate_king(&self) -> Coordinate {
         for (idx, row) in self.squares.iter().enumerate() {
             for (idy, square) in row.iter().enumerate() {
-                if let Square::Filled(Piece {
-                    color,
+                let turn = self.turn;
+                if let Square::Filled(Piece { // TODO: make this work 
+                    color : turn,
                     id,
                     piece_person: PiecePerson::King,
                 }) = square
@@ -429,7 +440,7 @@ impl Board {
         false
     }
 
-    fn apply_move(&mut self, initial_position: Coordinate, instruction: &Move) -> Vec<Piece> {
+    fn apply_move(&mut self, instruction: &Move) -> Vec<Piece> {
         match self.turn {
             PieceColor::Black => self.turn = PieceColor::White,
             PieceColor::White => self.turn = PieceColor::Black,
@@ -437,13 +448,17 @@ impl Board {
 
         match instruction {
             Move::Regular {
-                position: final_position,
+                initial_position,
+                final_position,
                 move_type,
             } => {
                 let final_square =
                     self.squares[final_position.x as usize][final_position.y as usize];
+
                 self.squares[final_position.x as usize][final_position.y as usize] =
                     self.squares[initial_position.x as usize][initial_position.y as usize];
+
+                self.squares[initial_position.x as usize][initial_position.y as usize] = Square::Empty;
 
                 if let Square::Filled(piece) = final_square {
                     vec![piece]
@@ -578,16 +593,22 @@ fn setup(
 }
 
 #[derive(Component)]
-struct PossibleMoveHighlight;
+struct PossibleMove{
+    piece_move: Move,
+}
+
+#[derive(Component)]
+struct Highlight;
 
 fn mouse_button_input(
     buttons: Res<ButtonInput<MouseButton>>,
-    board: Res<Board>,
+    mut board: ResMut<Board>,
     window: Single<&mut Window>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    current_highlights: Query<Entity, With<PossibleMoveHighlight>>,
+    current_highlights: Query<Entity, With<Highlight>>,
+    possible_moves: Query<&PossibleMove>
 ) {
     let width = window.width();
     let height = window.height();
@@ -595,25 +616,59 @@ fn mouse_button_input(
     let size_x = width / BOARD_TILE_DIM as f32;
     let size_y = height / BOARD_TILE_DIM as f32;
 
-    for current_highlight in current_highlights.iter() {
-        commands.entity(current_highlight).despawn();
-    }
-
     if let Some(click_position) = window.cursor_position() {
         // convert click_position to board position
-        let board_position = Coordinate {
+        let board_click_position = Coordinate {
             x: (click_position.x / size_x) as isize,
             y: (click_position.y / size_y) as isize,
         };
 
-        if let Some(moves) = board.get_possible_moves(board_position) {
+        let mut moved = false;
+
+        for possible_move in possible_moves.iter() {
+            match possible_move.piece_move {
+                Move::Regular { initial_position, final_position, move_type } => {
+                    if board_click_position == final_position {
+
+                        if let Square::Filled(piece) = board.get_square(&initial_position) {
+                            let pieces_to_despawn = board.apply_move(&possible_move.piece_move);
+                            
+                            commands.entity(piece.id.unwrap())
+                                .remove::<Transform>()
+                                .insert(Transform::from_xyz(
+                                    -(width / 2.) + (final_position.x as f32 * size_x) + (size_x / 2.),
+                                    (height / 2.) - (final_position.y as f32 * size_y) - (size_y / 2.),
+                                    0.0,
+                                )
+                                );
+
+                            for piece in pieces_to_despawn.iter() {
+                                commands.entity(piece.id.unwrap()).despawn();
+                            }
+
+                            moved = true;
+                            break;
+                        }
+                    }
+                }
+                Move::Promote { .. } => {}
+                Move::Castle { .. } => {}
+            }
+        }
+
+        // remove all the highlights
+        current_highlights.iter().for_each(|current_highlight| {commands.entity(current_highlight).despawn()});
+
+        if moved {return}
+
+        if let Some(moves) = board.get_possible_moves(board_click_position) {
             commands.spawn((
-                PossibleMoveHighlight,
+                Highlight,
                 Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
                 MeshMaterial2d(materials.add(POSSIBLE_MOVE_HIGHLIGHT_COLOR)),
                 Transform::from_xyz(
-                    -(width / 2.) + (board_position.x as f32 * size_x) + (size_x / 2.),
-                    (height / 2.) - (board_position.y as f32 * size_y) - (size_y / 2.),
+                    -(width / 2.) + (board_click_position.x as f32 * size_x) + (size_x / 2.),
+                    (height / 2.) - (board_click_position.y as f32 * size_y) - (size_y / 2.),
                     0.0,
                 ),
             ));
@@ -621,16 +676,18 @@ fn mouse_button_input(
             for piece_move in moves {
                 match piece_move {
                     Move::Regular {
-                        position,
+                        initial_position,
+                        final_position,
                         move_type,
                     } => {
                         commands.spawn((
-                            PossibleMoveHighlight,
+                            Highlight,
+                            PossibleMove{piece_move},
                             Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
                             MeshMaterial2d(materials.add(POSSIBLE_MOVE_HIGHLIGHT_COLOR)),
                             Transform::from_xyz(
-                                -(width / 2.) + (position.x as f32 * size_x) + (size_x / 2.),
-                                (height / 2.) - (position.y as f32 * size_y) - (size_y / 2.),
+                                -(width / 2.) + (final_position.x as f32 * size_x) + (size_x / 2.),
+                                (height / 2.) - (final_position.y as f32 * size_y) - (size_y / 2.),
                                 0.0,
                             ),
                         ));
