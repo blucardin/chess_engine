@@ -59,6 +59,15 @@ enum PieceColor {
     White,
 }
 
+impl PieceColor {
+    fn opposite(&self) -> Self {
+        match self {
+            PieceColor::Black => PieceColor::White,
+            PieceColor::White => PieceColor::Black,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 enum PiecePerson {
     Pawn { first_move: Option<i32> },
@@ -167,6 +176,12 @@ enum Square {
 enum MoveType {
     Jump,
     Take,
+}
+
+enum GameState {
+    Playing,
+    Checkmate { winner: PieceColor },
+    Draw,
 }
 
 // custom implementation for unusual values
@@ -313,16 +328,6 @@ impl Board {
     }
 
     fn filter_legal_moves(&self, moves: Vec<Move>) -> Vec<Move> {
-        // let mut output = Vec::new();
-        // for piece_move in moves {
-        //     let mut test_board = self.clone();
-        //     test_board.apply_move(position, &piece_move);
-        //     if !test_board.check_check() {
-        //         output.push(piece_move);
-        //     }
-        // }
-        // output
-
         moves
             .into_iter()
             .filter(|piece_move| {
@@ -333,7 +338,7 @@ impl Board {
             .collect()
     }
 
-    fn get_all_moves(&self) -> Vec<Move> {
+    fn get_all_moves_for_turn(&self) -> Vec<Move> {
         let mut output = Vec::new();
         for (idx, row) in self.squares.iter().enumerate() {
             for (idy, square) in row.iter().enumerate() {
@@ -497,6 +502,24 @@ impl Board {
         }
     }
 
+    fn outcome(&self) -> (GameState, Vec<Move>) {
+        let possible_moves = self.get_all_moves_for_turn();
+
+        let game_state = if possible_moves.is_empty() {
+            if self.check_check(self.turn) {
+                GameState::Checkmate {
+                    winner: self.turn.opposite(),
+                }
+            } else {
+                GameState::Draw
+            }
+        } else {
+            GameState::Playing
+        };
+
+        (game_state, possible_moves)
+    }
+
     fn new_row(right_piece: Piece, left_piece: Piece) -> [Square; BOARD_TILE_DIM as usize] {
         [
             Square::Filled(right_piece),
@@ -511,10 +534,7 @@ impl Board {
     }
 
     fn new(player_1_color: PieceColor) -> Self {
-        let player_2_color = match player_1_color {
-            PieceColor::Black => PieceColor::White,
-            PieceColor::White => PieceColor::Black,
-        };
+        let player_2_color = player_1_color.opposite();
 
         let mut squares: [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize] =
             [[Square::Empty; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
@@ -691,6 +711,27 @@ fn mouse_button_input(
             .for_each(|current_highlight| commands.entity(current_highlight).despawn());
 
         if moved {
+            let (game_state, moves) = board.outcome();
+
+            match game_state {
+                GameState::Playing => {}
+                GameState::Checkmate { winner } => {
+                    let text = match winner {
+                        PieceColor::Black => {"Checkmate, winner is Black"},
+                        PieceColor::White => {"Checkmate, winner is White"},
+                    };
+                    commands.spawn((
+                        Text::new(text),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            top: Val::Px(12.0),
+                            left: Val::Px(12.0),
+                            ..default()
+                        },
+                    ));
+                }
+                GameState::Draw => {}
+            }
             return;
         }
 
