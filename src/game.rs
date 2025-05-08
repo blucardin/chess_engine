@@ -1,6 +1,6 @@
-use std::cmp::PartialEq;
 use bevy::input::common_conditions::*;
 use bevy::prelude::*;
+use std::cmp::PartialEq;
 use std::ops;
 
 const BOARD_TILE_DIM: i32 = 8;
@@ -175,7 +175,7 @@ impl Board {
         let x = position.x;
         let y = position.y;
         if (x < 0 || y < 0)
-            || (x >= self.squares.len() as isize  || y >= self.squares[0].len() as isize)
+            || (x >= self.squares.len() as isize || y >= self.squares[0].len() as isize)
         {
             Square::Boundary
         } else {
@@ -247,7 +247,6 @@ impl Board {
     }
 
     fn get_possible_moves(&self, position: Coordinate) -> Option<Vec<Move>> {
-
         if let Square::Filled(piece) = self.get_square(&position) {
             if piece.color != self.turn {
                 return None;
@@ -255,62 +254,59 @@ impl Board {
 
             let mut output = Vec::new();
 
-            Some(self.filter_legal_moves(
-                match piece.piece_person {
-                    PiecePerson::Pawn { first_move } => {
-                        let going_up = self.turn == self.player_1_color;
-                        let direction: isize = if going_up { -1 } else { 1 };
+            Some(self.filter_legal_moves(match piece.piece_person {
+                PiecePerson::Pawn { first_move } => {
+                    let going_up = self.turn == self.player_1_color;
+                    let direction: isize = if going_up { -1 } else { 1 };
 
-                        // TODO: implement pawn promotion
-                        // Check if the pawn is on the last row of it's direction, these become 3 separate moves, Knight, Rook, and Queen
-                        if going_up {}
+                    // TODO: implement pawn promotion
+                    // Check if the pawn is on the last row of it's direction, these become 3 separate moves, Knight, Rook, and Queen
+                    if going_up {}
 
-                        let front = position + (0, 1 * direction);
-                        if self.possible_jump(&front) {
-                            output.push(Move::Regular {
-                                initial_position: position,
-                                final_position: front,
-                                move_type: MoveType::Jump,
-                            });
+                    let front = position + (0, 1 * direction);
+                    if self.possible_jump(&front) {
+                        output.push(Move::Regular {
+                            initial_position: position,
+                            final_position: front,
+                            move_type: MoveType::Jump,
+                        });
 
-                            if first_move.is_none() {
-                                let front = position + (0, 2 * direction);
-                                if self.possible_jump(&front) {
-                                    output.push(Move::Regular {
-                                        initial_position: position,
-                                        final_position: front,
-                                        move_type: MoveType::Jump,
-                                    });
-                                }
-                            }
-
-                        }
-
-                        for i in [-1, 1] {
-                            let front_lr = position + (i, 1 * direction);
-                            if self.possible_take(&front_lr) {
+                        if first_move.is_none() {
+                            let front = position + (0, 2 * direction);
+                            if self.possible_jump(&front) {
                                 output.push(Move::Regular {
                                     initial_position: position,
-                                    final_position: front_lr,
-                                    move_type: MoveType::Take,
+                                    final_position: front,
+                                    move_type: MoveType::Jump,
                                 });
                             }
                         }
-
-                        // TODO: implement en passant
-
-                        output
                     }
-                    PiecePerson::Rook => self.cast_ray(&position, &ROOK_SEARCH_OFFSETS),
-                    PiecePerson::Bishop => self.cast_ray(&position, &BISHOP_SEARCH_OFFSETS),
-                    PiecePerson::Queen => self.cast_ray(
-                        &position,
-                        &[ROOK_SEARCH_OFFSETS, BISHOP_SEARCH_OFFSETS].concat(),
-                    ),
-                    PiecePerson::King => self.check_squares(&position, &KING_SEARCH_OFFSETS),
-                    PiecePerson::Knight => self.check_squares(&position, &KNIGHT_SEARCH_OFFSETS),
-                },
-            ))
+
+                    for i in [-1, 1] {
+                        let front_lr = position + (i, 1 * direction);
+                        if self.possible_take(&front_lr) {
+                            output.push(Move::Regular {
+                                initial_position: position,
+                                final_position: front_lr,
+                                move_type: MoveType::Take,
+                            });
+                        }
+                    }
+
+                    // TODO: implement en passant
+
+                    output
+                }
+                PiecePerson::Rook => self.cast_ray(&position, &ROOK_SEARCH_OFFSETS),
+                PiecePerson::Bishop => self.cast_ray(&position, &BISHOP_SEARCH_OFFSETS),
+                PiecePerson::Queen => self.cast_ray(
+                    &position,
+                    &[ROOK_SEARCH_OFFSETS, BISHOP_SEARCH_OFFSETS].concat(),
+                ),
+                PiecePerson::King => self.check_squares(&position, &KING_SEARCH_OFFSETS),
+                PiecePerson::Knight => self.check_squares(&position, &KNIGHT_SEARCH_OFFSETS),
+            }))
         } else {
             None
         }
@@ -355,8 +351,12 @@ impl Board {
     fn locate_king(&self, search_color: PieceColor) -> Coordinate {
         for (idx, row) in self.squares.iter().enumerate() {
             for (idy, square) in row.iter().enumerate() {
-
-                if let Square::Filled(Piece {color, id, piece_person: PiecePerson::King}) = square {
+                if let Square::Filled(Piece {
+                    color,
+                    id,
+                    piece_person: PiecePerson::King,
+                }) = square
+                {
                     if *color == search_color {
                         return Coordinate {
                             x: idx as isize,
@@ -364,13 +364,12 @@ impl Board {
                         };
                     }
                 }
-
             }
         }
         panic!("NO KING ON BOARD")
     }
 
-    fn check_check(&self, color : PieceColor) -> bool {
+    fn check_check(&self, color: PieceColor) -> bool {
         let king_location = self.locate_king(color);
 
         for (piece_person, offsets) in [
@@ -452,7 +451,6 @@ impl Board {
                 final_position,
                 move_type,
             } => {
-
                 let fx = final_position.x as usize;
                 let fy = final_position.y as usize;
                 let ix = initial_position.x as usize;
@@ -464,8 +462,22 @@ impl Board {
 
                 self.squares[ix][iy] = Square::Empty;
 
-                if let Square::Filled(Piece{ color, piece_person:PiecePerson::Pawn { first_move: Option::None }, id }) = self.squares[fx][fy] {
-                    self.squares[fx][fy] = Square::Filled(Piece{ color, piece_person:PiecePerson::Pawn { first_move: Some(self.move_number) }, id });
+                if let Square::Filled(Piece {
+                    color,
+                    piece_person:
+                        PiecePerson::Pawn {
+                            first_move: Option::None,
+                        },
+                    id,
+                }) = self.squares[fx][fy]
+                {
+                    self.squares[fx][fy] = Square::Filled(Piece {
+                        color,
+                        piece_person: PiecePerson::Pawn {
+                            first_move: Some(self.move_number),
+                        },
+                        id,
+                    });
                 }
 
                 self.move_number += 1;
@@ -518,11 +530,11 @@ impl Board {
         }
 
         squares[3] = Board::new_row(
-            Piece::new(player_2_color, PiecePerson::King),
+            Piece::new(player_2_color, PiecePerson::Queen),
             Piece::new(player_1_color, PiecePerson::Queen),
         );
         squares[4] = Board::new_row(
-            Piece::new(player_2_color, PiecePerson::Queen),
+            Piece::new(player_2_color, PiecePerson::King),
             Piece::new(player_1_color, PiecePerson::King),
         );
 
@@ -603,7 +615,7 @@ fn setup(
 }
 
 #[derive(Component)]
-struct PossibleMove{
+struct PossibleMove {
     piece_move: Move,
 }
 
@@ -618,7 +630,7 @@ fn mouse_button_input(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     current_highlights: Query<Entity, With<Highlight>>,
-    possible_moves: Query<&PossibleMove>
+    possible_moves: Query<&PossibleMove>,
 ) {
     let width = window.width();
     let height = window.height();
@@ -637,20 +649,27 @@ fn mouse_button_input(
 
         for possible_move in possible_moves.iter() {
             match possible_move.piece_move {
-                Move::Regular { initial_position, final_position, move_type } => {
+                Move::Regular {
+                    initial_position,
+                    final_position,
+                    move_type,
+                } => {
                     if board_click_position == final_position {
-
                         if let Square::Filled(piece) = board.get_square(&initial_position) {
                             let pieces_to_despawn = board.apply_move(&possible_move.piece_move);
 
-                            commands.entity(piece.id.unwrap())
+                            commands
+                                .entity(piece.id.unwrap())
                                 .remove::<Transform>()
                                 .insert(Transform::from_xyz(
-                                    -(width / 2.) + (final_position.x as f32 * size_x) + (size_x / 2.),
-                                    (height / 2.) - (final_position.y as f32 * size_y) - (size_y / 2.),
+                                    -(width / 2.)
+                                        + (final_position.x as f32 * size_x)
+                                        + (size_x / 2.),
+                                    (height / 2.)
+                                        - (final_position.y as f32 * size_y)
+                                        - (size_y / 2.),
                                     0.0,
-                                )
-                                );
+                                ));
 
                             for piece in pieces_to_despawn.iter() {
                                 commands.entity(piece.id.unwrap()).despawn();
@@ -667,9 +686,13 @@ fn mouse_button_input(
         }
 
         // remove all the highlights
-        current_highlights.iter().for_each(|current_highlight| {commands.entity(current_highlight).despawn()});
+        current_highlights
+            .iter()
+            .for_each(|current_highlight| commands.entity(current_highlight).despawn());
 
-        if moved {return}
+        if moved {
+            return;
+        }
 
         if let Some(moves) = board.get_possible_moves(board_click_position) {
             commands.spawn((
@@ -692,7 +715,7 @@ fn mouse_button_input(
                     } => {
                         commands.spawn((
                             Highlight,
-                            PossibleMove{piece_move},
+                            PossibleMove { piece_move },
                             Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
                             MeshMaterial2d(materials.add(POSSIBLE_MOVE_HIGHLIGHT_COLOR)),
                             Transform::from_xyz(
