@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use bevy::input::common_conditions::*;
 use bevy::prelude::*;
 use std::ops;
@@ -282,7 +283,7 @@ impl Board {
                                     });
                                 }
                             }
-                            
+
                         }
 
                         for i in [-1, 1] {
@@ -325,15 +326,15 @@ impl Board {
         //     }
         // }
         // output
-        
+
         moves
-        //     .into_iter()
-        //     .filter(|piece_move| {
-        //         let mut test_board = self.clone();
-        //         test_board.apply_move(&piece_move);
-        //         !test_board.check_check()
-        //     })
-        //     .collect()
+            .into_iter()
+            .filter(|piece_move| {
+                let mut test_board = self.clone();
+                test_board.apply_move(&piece_move);
+                !test_board.check_check(self.turn)
+            })
+            .collect()
     }
 
     fn get_all_moves(&self) -> Vec<Move> {
@@ -351,28 +352,26 @@ impl Board {
         output
     }
 
-    fn locate_king(&self) -> Coordinate {
+    fn locate_king(&self, search_color: PieceColor) -> Coordinate {
         for (idx, row) in self.squares.iter().enumerate() {
             for (idy, square) in row.iter().enumerate() {
-                let turn = self.turn;
-                if let Square::Filled(Piece { // TODO: make this work 
-                    color : turn,
-                    id,
-                    piece_person: PiecePerson::King,
-                }) = square
-                {
-                    return Coordinate {
-                        x: idx as isize,
-                        y: idy as isize,
-                    };
+
+                if let Square::Filled(Piece {color, id, piece_person: PiecePerson::King}) = square {
+                    if *color == search_color {
+                        return Coordinate {
+                            x: idx as isize,
+                            y: idy as isize,
+                        };
+                    }
                 }
+
             }
         }
         panic!("NO KING ON BOARD")
     }
 
-    fn check_check(&self) -> bool {
-        let king_location = self.locate_king();
+    fn check_check(&self, color : PieceColor) -> bool {
+        let king_location = self.locate_king(color);
 
         for (piece_person, offsets) in [
             (PiecePerson::Rook, ROOK_SEARCH_OFFSETS),
@@ -389,7 +388,7 @@ impl Board {
                         }
 
                         Square::Filled(piece) => {
-                            if piece.color == self.turn {
+                            if piece.color == color {
                                 continue 'rays;
                             }
 
@@ -413,24 +412,24 @@ impl Board {
         ] {
             for offset in offsets {
                 if let Square::Filled(piece) = self.get_square(&(king_location + offset)) {
-                    if piece.color != self.turn && piece.piece_person == piece_person {
+                    if piece.color != color && piece.piece_person == piece_person {
                         return true;
                     }
                 }
             }
         }
 
-        let going_up = self.turn == self.player_1_color;
+        let going_up = color == self.player_1_color;
         let threatening_pawn_y_offset: isize = if going_up { -1 } else { 1 };
         let offsets = [
             (-1, threatening_pawn_y_offset),
-            (0, threatening_pawn_y_offset),
+            (1, threatening_pawn_y_offset),
         ];
 
         for offset in offsets {
             if let Square::Filled(piece) = self.get_square(&(king_location + offset)) {
                 if let PiecePerson::Pawn { .. } = piece.piece_person {
-                    if piece.color != self.turn {
+                    if piece.color != color {
                         return true;
                     }
                 }
@@ -453,12 +452,12 @@ impl Board {
                 final_position,
                 move_type,
             } => {
-                
+
                 let fx = final_position.x as usize;
                 let fy = final_position.y as usize;
                 let ix = initial_position.x as usize;
                 let iy = initial_position.y as usize;
-                
+
                 let final_square = self.squares[fx][fy];
 
                 self.squares[fx][fy] = self.squares[ix][iy];
@@ -468,7 +467,7 @@ impl Board {
                 if let Square::Filled(Piece{ color, piece_person:PiecePerson::Pawn { first_move: Option::None }, id }) = self.squares[fx][fy] {
                     self.squares[fx][fy] = Square::Filled(Piece{ color, piece_person:PiecePerson::Pawn { first_move: Some(self.move_number) }, id });
                 }
-                
+
                 self.move_number += 1;
 
                 if let Square::Filled(piece) = final_square {
@@ -643,7 +642,7 @@ fn mouse_button_input(
 
                         if let Square::Filled(piece) = board.get_square(&initial_position) {
                             let pieces_to_despawn = board.apply_move(&possible_move.piece_move);
-                            
+
                             commands.entity(piece.id.unwrap())
                                 .remove::<Transform>()
                                 .insert(Transform::from_xyz(
