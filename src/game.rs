@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use std::cmp::PartialEq;
 use std::ops;
 
-const BOARD_TILE_DIM: i32 = 8;
+const BOARD_TILE_DIM: isize = 8;
 const DEFAULT_BOARD_TILE_SIZE: f32 = 100.0;
 pub(crate) const DEFAULT_BOARD_HEIGHT: f32 = BOARD_TILE_DIM as f32 * DEFAULT_BOARD_TILE_SIZE;
 
@@ -12,7 +12,7 @@ const WHITE_TILE_COLOR: Color = Color::srgb_u8(254, 207, 159);
 const BLACK_TILE_COLOR: Color = Color::srgb_u8(210, 140, 69);
 
 const POSSIBLE_MOVE_HIGHLIGHT_COLOR: Color = Color::srgba_u8(32, 194, 29, 255 / 4);
-
+const PROMOTION_BACKGROUND_COLOR: Color = Color::srgb_u8(45, 45, 45);
 const PIECES_FOLDER: &str = "pieces-basic-png";
 
 const ROOK_SEARCH_OFFSETS: [(isize, isize); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
@@ -40,7 +40,7 @@ const KNIGHT_SEARCH_OFFSETS: [(isize, isize); 8] = [
     (-1, 2),
 ];
 
-pub(crate) struct Game;
+pub struct Game;
 
 impl Plugin for Game {
     fn build(&self, app: &mut App) {
@@ -66,6 +66,13 @@ impl PieceColor {
             PieceColor::White => PieceColor::Black,
         }
     }
+
+    fn file_string(&self) -> String {
+        String::from(match self {
+            PieceColor::Black => "black",
+            PieceColor::White => "white",
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -82,6 +89,17 @@ impl PiecePerson {
     fn new_pawn() -> Self {
         PiecePerson::Pawn { first_move: None }
     }
+
+    fn file_string(&self) -> String {
+        String::from(match self {
+            PiecePerson::Pawn { first_move: _ } => "pawn",
+            PiecePerson::Rook => "rook",
+            PiecePerson::Knight => "knight",
+            PiecePerson::Bishop => "bishop",
+            PiecePerson::Queen => "queen",
+            PiecePerson::King => "king",
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -89,6 +107,13 @@ struct Piece {
     color: PieceColor,
     piece_person: PiecePerson,
     id: Option<Entity>,
+}
+
+fn format_piece_filename(color_file_string: String, name_file_string: String) -> String {
+    format!(
+        "{}/{}-{}.png",
+        PIECES_FOLDER, color_file_string, name_file_string
+    )
 }
 
 impl Piece {
@@ -100,19 +125,9 @@ impl Piece {
         }
     }
     fn get_asset_path(&self) -> String {
-        let name: &str = match self.piece_person {
-            PiecePerson::Pawn { first_move: _ } => "pawn",
-            PiecePerson::Rook => "rook",
-            PiecePerson::Knight => "knight",
-            PiecePerson::Bishop => "bishop",
-            PiecePerson::Queen => "queen",
-            PiecePerson::King => "king",
-        };
-        let color: &str = match self.color {
-            PieceColor::Black => "black",
-            PieceColor::White => "white",
-        };
-        format!("{}/{}-{}.png", PIECES_FOLDER, color, name)
+        let name_file_string = self.piece_person.file_string();
+        let color_file_string = self.color.file_string();
+        format_piece_filename(color_file_string, name_file_string)
     }
 }
 
@@ -183,6 +198,13 @@ enum GameState {
     Checkmate { winner: PieceColor },
     Draw,
 }
+
+const POSSIBLE_PAWN_PROMOTES: [PiecePerson; 4] = [
+    PiecePerson::Queen,
+    PiecePerson::Rook,
+    PiecePerson::Bishop,
+    PiecePerson::Knight,
+];
 
 // custom implementation for unusual values
 impl Board {
@@ -261,8 +283,12 @@ impl Board {
         output
     }
 
-    fn get_possible_moves(&self, position: Coordinate) -> Option<Vec<Move>> {
-        if let Square::Filled(piece) = self.get_square(&position) {
+    fn pawn_going_up(&self) -> bool {
+        self.turn == self.player_1_color
+    }
+
+    fn get_possible_moves(&self, initial_position: Coordinate) -> Option<Vec<Move>> {
+        if let Square::Filled(piece) = self.get_square(&initial_position) {
             if piece.color != self.turn {
                 return None;
             }
@@ -271,41 +297,75 @@ impl Board {
 
             Some(self.filter_legal_moves(match piece.piece_person {
                 PiecePerson::Pawn { first_move } => {
-                    let going_up = self.turn == self.player_1_color;
+                    let going_up = self.pawn_going_up();
                     let direction: isize = if going_up { -1 } else { 1 };
 
-                    // TODO: implement pawn promotion
-                    // Check if the pawn is on the last row of it's direction, these become 3 separate moves, Knight, Rook, and Queen
-                    if going_up {}
+                    // Check if the pawn is on the last row of its direction, these become 3 separate moves, Knight, Rook, and Queen
 
-                    let front = position + (0, 1 * direction);
+                    let mut promote = false;
+
+                    if going_up {
+                        if initial_position.y == 1 {
+                            promote = true;
+                        }
+                    } else {
+                        if initial_position.y == (BOARD_TILE_DIM - 2) {
+                            promote = true;
+                        }
+                    }
+
+                    let front = initial_position + (0, 1 * direction);
                     if self.possible_jump(&front) {
-                        output.push(Move::Regular {
-                            initial_position: position,
-                            final_position: front,
-                            move_type: MoveType::Jump,
-                        });
+                        let move_type = MoveType::Jump;
+                        if promote {
+                            for piece_person in POSSIBLE_PAWN_PROMOTES {
+                                output.push(Move::Promote {
+                                    initial_position,
+                                    final_position: front,
+                                    move_type,
+                                    piece_person,
+                                });
+                            }
+                        } else {
+                            output.push(Move::Regular {
+                                initial_position,
+                                final_position: front,
+                                move_type,
+                            });
+                        }
 
                         if first_move.is_none() {
-                            let front = position + (0, 2 * direction);
+                            let front = initial_position + (0, 2 * direction);
                             if self.possible_jump(&front) {
                                 output.push(Move::Regular {
-                                    initial_position: position,
+                                    initial_position,
                                     final_position: front,
-                                    move_type: MoveType::Jump,
+                                    move_type,
                                 });
                             }
                         }
                     }
 
                     for i in [-1, 1] {
-                        let front_lr = position + (i, 1 * direction);
+                        let front_lr = initial_position + (i, 1 * direction);
                         if self.possible_take(&front_lr) {
-                            output.push(Move::Regular {
-                                initial_position: position,
-                                final_position: front_lr,
-                                move_type: MoveType::Take,
-                            });
+                            let move_type = MoveType::Take;
+                            if promote {
+                                for piece_person in POSSIBLE_PAWN_PROMOTES {
+                                    output.push(Move::Promote {
+                                        initial_position,
+                                        final_position: front_lr,
+                                        move_type,
+                                        piece_person,
+                                    });
+                                }
+                            } else {
+                                output.push(Move::Regular {
+                                    initial_position,
+                                    final_position: front_lr,
+                                    move_type,
+                                });
+                            }
                         }
                     }
 
@@ -313,14 +373,16 @@ impl Board {
 
                     output
                 }
-                PiecePerson::Rook => self.cast_ray(&position, &ROOK_SEARCH_OFFSETS),
-                PiecePerson::Bishop => self.cast_ray(&position, &BISHOP_SEARCH_OFFSETS),
+                PiecePerson::Rook => self.cast_ray(&initial_position, &ROOK_SEARCH_OFFSETS),
+                PiecePerson::Bishop => self.cast_ray(&initial_position, &BISHOP_SEARCH_OFFSETS),
                 PiecePerson::Queen => self.cast_ray(
-                    &position,
+                    &initial_position,
                     &[ROOK_SEARCH_OFFSETS, BISHOP_SEARCH_OFFSETS].concat(),
                 ),
-                PiecePerson::King => self.check_squares(&position, &KING_SEARCH_OFFSETS),
-                PiecePerson::Knight => self.check_squares(&position, &KNIGHT_SEARCH_OFFSETS),
+                PiecePerson::King => self.check_squares(&initial_position, &KING_SEARCH_OFFSETS),
+                PiecePerson::Knight => {
+                    self.check_squares(&initial_position, &KNIGHT_SEARCH_OFFSETS)
+                }
             }))
         } else {
             None
@@ -445,60 +507,89 @@ impl Board {
     }
 
     fn apply_move(&mut self, instruction: &Move) -> Vec<Piece> {
-        match self.turn {
-            PieceColor::Black => self.turn = PieceColor::White,
-            PieceColor::White => self.turn = PieceColor::Black,
-        }
 
-        match instruction {
+        let pieces_to_update = match instruction {
             Move::Regular {
                 initial_position,
                 final_position,
                 move_type,
             } => {
-                let fx = final_position.x as usize;
-                let fy = final_position.y as usize;
-                let ix = initial_position.x as usize;
-                let iy = initial_position.y as usize;
-
-                let final_square = self.squares[fx][fy];
-
-                self.squares[fx][fy] = self.squares[ix][iy];
-
-                self.squares[ix][iy] = Square::Empty;
-
-                if let Square::Filled(Piece {
-                    color,
-                    piece_person:
-                        PiecePerson::Pawn {
-                            first_move: Option::None,
+                let replacement_piece: Piece =
+                    match self.squares[initial_position.x as usize][initial_position.y as usize] {
+                        Square::Filled(Piece {
+                            color,
+                            piece_person:
+                                PiecePerson::Pawn {
+                                    first_move: Option::None,
+                                },
+                            id,
+                        }) => Piece {
+                            color,
+                            piece_person: PiecePerson::Pawn {
+                                first_move: Some(self.move_number),
+                            },
+                            id,
                         },
-                    id,
-                }) = self.squares[fx][fy]
-                {
-                    self.squares[fx][fy] = Square::Filled(Piece {
-                        color,
-                        piece_person: PiecePerson::Pawn {
-                            first_move: Some(self.move_number),
+                        Square::Filled(piece) => piece,
+                        _ => {
+                            panic!("Inital Piece not filled")
+                        }
+                    };
+
+                self.replace_piece(initial_position, final_position, replacement_piece)
+            }
+            Move::Promote {
+                initial_position,
+                final_position,
+                move_type,
+                piece_person,
+            } => {
+                let old_pawn = self.squares[initial_position.x as usize][initial_position.y as usize];
+                if let Square::Filled(piece) = old_pawn {
+                    self.replace_piece(
+                        initial_position,
+                        final_position,
+                        Piece {
+                            piece_person: *piece_person, 
+                            ..piece
                         },
-                        id,
-                    });
+                    )
+                } else { 
+                    panic!("Original Piece for promotion not filled")
                 }
-
-                self.move_number += 1;
-
-                if let Square::Filled(piece) = final_square {
-                    vec![piece]
-                } else {
-                    vec![]
-                }
-            }
-            Move::Promote { .. } => {
-                todo!("Promote move")
-            }
+            },
             Move::Castle { .. } => {
                 todo!("Castle")
             }
+        };
+
+        self.turn = self.turn.opposite();
+        self.move_number += 1;
+
+        pieces_to_update
+    }
+
+    fn replace_piece(
+        &mut self,
+        initial_position: &Coordinate,
+        final_position: &Coordinate,
+        promotion_piece: Piece,
+    ) -> Vec<Piece> {
+        let fx = final_position.x as usize;
+        let fy = final_position.y as usize;
+        let ix = initial_position.x as usize;
+        let iy = initial_position.y as usize;
+
+        let final_square = self.squares[fx][fy];
+
+        self.squares[fx][fy] = Square::Filled(promotion_piece);
+
+        self.squares[ix][iy] = Square::Empty;
+
+        if let Square::Filled(piece) = final_square {
+            vec![piece]
+        } else {
+            vec![]
         }
     }
 
@@ -578,6 +669,21 @@ impl Board {
     }
 }
 
+fn generate_transform_for_board_gui(
+    window_width: f32,
+    window_height: f32,
+    tile_size_x: f32,
+    tile_size_y: f32,
+    x: usize,
+    y: usize,
+) -> Transform {
+    Transform::from_xyz(
+        -(window_width / 2.) + (x as f32 * tile_size_x) + (tile_size_x / 2.),
+        (window_height / 2.) - (y as f32 * tile_size_y) - (tile_size_y / 2.),
+        0.0,
+    )
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -603,11 +709,8 @@ fn setup(
                 BLACK_TILE_COLOR
             };
 
-            let transform = Transform::from_xyz(
-                -(width / 2.) + (idx as f32 * size_x) + (size_x / 2.),
-                (height / 2.) - (idy as f32 * size_y) - (size_y / 2.),
-                0.0,
-            );
+            let transform =
+                generate_transform_for_board_gui(width, height, size_x, size_y, idx, idy);
 
             commands.spawn((
                 Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
@@ -642,8 +745,14 @@ struct PossibleMove {
 #[derive(Component)]
 struct Highlight;
 
+#[derive(Component)]
+struct PromotionPicker {
+    piece_move: Move,
+    board_position: Coordinate,
+}
+
 fn mouse_button_input(
-    buttons: Res<ButtonInput<MouseButton>>,
+    // buttons: Res<ButtonInput<MouseButton>>,
     mut board: ResMut<Board>,
     window: Single<&mut Window>,
     mut commands: Commands,
@@ -651,6 +760,9 @@ fn mouse_button_input(
     mut materials: ResMut<Assets<ColorMaterial>>,
     current_highlights: Query<Entity, With<Highlight>>,
     possible_moves: Query<&PossibleMove>,
+    promotions: Query<&PromotionPicker>,
+    promotion_pickers: Query<Entity, With<PromotionPicker>>,
+    asset_server: Res<AssetServer>,
 ) {
     let width = window.width();
     let height = window.height();
@@ -667,6 +779,66 @@ fn mouse_button_input(
 
         let mut moved = false;
 
+        if !promotions.is_empty() {
+            for promotion in promotions.iter() {
+                if promotion.board_position == board_click_position {
+                    if let Move::Promote {
+                        initial_position,
+                        final_position,
+                        move_type,
+                        piece_person,
+                    } = promotion.piece_move
+                    {
+                        if let Square::Filled(piece) = board.get_square(&initial_position) {
+                            // don't despawn and respawn, just change the sprite and the transform
+
+                            // despawn the og pawn
+                            commands
+                                .entity(piece.id.unwrap())
+                                .remove::<Transform>()
+                                .remove::<Sprite>()
+                                .insert((
+                                    Sprite {
+                                        image: asset_server.load(format_piece_filename(
+                                            board.turn.file_string(),
+                                            piece_person.file_string(),
+                                        )),
+                                        custom_size: Some(Vec2::new(size_x, size_y)),
+                                        ..default()
+                                    },
+                                    generate_transform_for_board_gui(
+                                        width,
+                                        height,
+                                        size_x,
+                                        size_y,
+                                        final_position.x as usize,
+                                        final_position.y as usize,
+                                    ),
+                                ));
+
+                            let pieces_to_despawn = board.apply_move(&promotion.piece_move);
+
+                            for piece in pieces_to_despawn.iter() {
+                                commands.entity(piece.id.unwrap()).despawn();
+                            }
+
+                            // despawn all the move picker elements
+                            for promotion_picker in promotion_pickers.iter() {
+                                commands.entity(promotion_picker).despawn();
+                            }
+
+                            moved = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if !moved {
+                return; 
+            }
+        }
+
         for possible_move in possible_moves.iter() {
             match possible_move.piece_move {
                 Move::Regular {
@@ -681,14 +853,13 @@ fn mouse_button_input(
                             commands
                                 .entity(piece.id.unwrap())
                                 .remove::<Transform>()
-                                .insert(Transform::from_xyz(
-                                    -(width / 2.)
-                                        + (final_position.x as f32 * size_x)
-                                        + (size_x / 2.),
-                                    (height / 2.)
-                                        - (final_position.y as f32 * size_y)
-                                        - (size_y / 2.),
-                                    0.0,
+                                .insert(generate_transform_for_board_gui(
+                                    width,
+                                    height,
+                                    size_x,
+                                    size_y,
+                                    final_position.x as usize,
+                                    final_position.y as usize,
                                 ));
 
                             for piece in pieces_to_despawn.iter() {
@@ -700,7 +871,69 @@ fn mouse_button_input(
                         }
                     }
                 }
-                Move::Promote { .. } => {}
+                Move::Promote {
+                    initial_position,
+                    final_position,
+                    move_type,
+                    piece_person,
+                } => {
+                    // remove all the highlights
+                    current_highlights
+                        .iter()
+                        .for_each(|current_highlight| commands.entity(current_highlight).despawn());
+
+                    let going_up = board.pawn_going_up();
+                    let direction: isize = if going_up { -1 } else { 1 };
+
+                    for (idx, piece_person) in POSSIBLE_PAWN_PROMOTES.iter().enumerate() {
+                        let picker_position_x = final_position.x as usize;
+                        let picker_position_y =
+                            (final_position.y + ((-1 * direction) * idx as isize)) as usize;
+                        
+                        let transform = generate_transform_for_board_gui(
+                            width,
+                            height,
+                            size_x,
+                            size_y,
+                            picker_position_x,
+                            picker_position_y,
+                        );
+                        
+                        // don't use highlight, use another marker component so things don't get lost
+
+                        commands.spawn((
+                            Highlight,
+                            Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
+                            MeshMaterial2d(materials.add(PROMOTION_BACKGROUND_COLOR)),
+                            transform,
+                        ));
+
+                        commands.spawn((
+                            PromotionPicker {
+                                piece_move: Move::Promote {
+                                    initial_position,
+                                    final_position,
+                                    move_type,
+                                    piece_person: *piece_person,
+                                },
+                                board_position: Coordinate {
+                                    x: picker_position_x as isize,
+                                    y: picker_position_y as isize,
+                                },
+                            },
+                            Sprite {
+                                image: asset_server.load(format_piece_filename(
+                                    board.turn.file_string(),
+                                    piece_person.file_string(),
+                                )),
+                                custom_size: Some(Vec2::new(size_x, size_y)),
+                                ..default()
+                            },
+                            transform,
+                        ));
+                    }
+                    return;
+                }
                 Move::Castle { .. } => {}
             }
         }
@@ -717,8 +950,8 @@ fn mouse_button_input(
                 GameState::Playing => {}
                 GameState::Checkmate { winner } => {
                     let text = match winner {
-                        PieceColor::Black => {"Checkmate, winner is Black"},
-                        PieceColor::White => {"Checkmate, winner is White"},
+                        PieceColor::Black => "Checkmate, winner is Black",
+                        PieceColor::White => "Checkmate, winner is White",
                     };
                     commands.spawn((
                         Text::new(text),
@@ -740,12 +973,17 @@ fn mouse_button_input(
                 Highlight,
                 Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
                 MeshMaterial2d(materials.add(POSSIBLE_MOVE_HIGHLIGHT_COLOR)),
-                Transform::from_xyz(
-                    -(width / 2.) + (board_click_position.x as f32 * size_x) + (size_x / 2.),
-                    (height / 2.) - (board_click_position.y as f32 * size_y) - (size_y / 2.),
-                    0.0,
+                generate_transform_for_board_gui(
+                    width,
+                    height,
+                    size_x,
+                    size_y,
+                    board_click_position.x as usize,
+                    board_click_position.y as usize,
                 ),
             ));
+
+            let mut promotion_coordinates: Vec<Coordinate> = vec![];
 
             for piece_move in moves {
                 match piece_move {
@@ -766,7 +1004,30 @@ fn mouse_button_input(
                             ),
                         ));
                     }
-                    Move::Promote { .. } => {}
+                    Move::Promote {
+                        initial_position,
+                        final_position,
+                        move_type,
+                        piece_person,
+                    } => {
+                        if !promotion_coordinates.contains(&final_position) {
+                            promotion_coordinates.push(final_position);
+                            commands.spawn((
+                                Highlight,
+                                PossibleMove { piece_move },
+                                Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
+                                MeshMaterial2d(materials.add(POSSIBLE_MOVE_HIGHLIGHT_COLOR)),
+                                generate_transform_for_board_gui(
+                                    width,
+                                    height,
+                                    size_x,
+                                    size_y,
+                                    final_position.x as usize,
+                                    final_position.y as usize,
+                                ),
+                            ));
+                        }
+                    }
                     Move::Castle { .. } => {}
                 }
             }
