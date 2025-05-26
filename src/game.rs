@@ -78,11 +78,11 @@ impl PieceColor {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 enum PiecePerson {
     Pawn { first_move: Option<i32> },
-    Rook,
+    Rook { moved: bool },
     Knight,
     Bishop,
     Queen,
-    King,
+    King { moved: bool },
 }
 
 impl PiecePerson {
@@ -93,11 +93,11 @@ impl PiecePerson {
     fn file_string(&self) -> String {
         String::from(match self {
             PiecePerson::Pawn { first_move: _ } => "pawn",
-            PiecePerson::Rook => "rook",
+            PiecePerson::Rook { .. } => "rook",
             PiecePerson::Knight => "knight",
             PiecePerson::Bishop => "bishop",
             PiecePerson::Queen => "queen",
-            PiecePerson::King => "king",
+            PiecePerson::King { .. } => "king",
         })
     }
 }
@@ -157,8 +157,8 @@ impl ops::Add<(isize, isize)> for Coordinate {
 
 #[derive(Debug)]
 enum Side {
-    Left,
-    Right,
+    QueenSide,
+    KingsSide,
 }
 
 #[derive(Debug)]
@@ -175,7 +175,6 @@ enum Move {
         piece_person: PiecePerson,
     },
     Castle {
-        initial_position: Coordinate,
         side: Side,
     },
 }
@@ -201,7 +200,7 @@ enum GameState {
 
 const POSSIBLE_PAWN_PROMOTES: [PiecePerson; 4] = [
     PiecePerson::Queen,
-    PiecePerson::Rook,
+    PiecePerson::Rook { moved: true },
     PiecePerson::Bishop,
     PiecePerson::Knight,
 ];
@@ -289,7 +288,7 @@ impl Board {
 
     fn get_possible_moves(&self, initial_position: Coordinate) -> Option<Vec<Move>> {
         if let Square::Filled(piece) = self.get_square(&initial_position) {
-            if piece.color != self.turn {
+            if piece.color != self.turn { // look into making this a part of the if-let statement above 
                 return None;
             }
 
@@ -373,13 +372,78 @@ impl Board {
 
                     output
                 }
-                PiecePerson::Rook => self.cast_ray(&initial_position, &ROOK_SEARCH_OFFSETS),
+                PiecePerson::Rook { .. } => { 
+                    self.cast_ray(&initial_position, &ROOK_SEARCH_OFFSETS)
+                },
                 PiecePerson::Bishop => self.cast_ray(&initial_position, &BISHOP_SEARCH_OFFSETS),
                 PiecePerson::Queen => self.cast_ray(
                     &initial_position,
                     &[ROOK_SEARCH_OFFSETS, BISHOP_SEARCH_OFFSETS].concat(),
                 ),
-                PiecePerson::King => self.check_squares(&initial_position, &KING_SEARCH_OFFSETS),
+                PiecePerson::King { moved : king_moved } => {
+                    output = self.check_squares(&initial_position, &KING_SEARCH_OFFSETS);
+
+                    // determine if we are on the white or black side of the board
+                    let row_to_check: isize = if self.pawn_going_up() { BOARD_TILE_DIM - 1 } else { 0 };
+                    
+                    // check that the king hasn't moved
+                    if king_moved == false && !self.check_check(self.turn, Coordinate { x: 4, y: row_to_check }) {
+                        
+                        // check king side
+                        // check that the rook hasn't moved
+                        if let Square::Filled(Piece { color, piece_person: PiecePerson::Rook { moved:false }, id }) = self.get_square(&Coordinate {x: BOARD_TILE_DIM-1, y:row_to_check}) {
+                            
+                            let mut possible_castle = true;
+                            
+                            for x in [5, 6] {
+                                
+                                let intermediate = Coordinate{x, y:row_to_check};
+
+                                // check that the intermediate squares are vacant,
+                                // check that the intermediate squares are not under attack
+                                
+                                if self.squares[intermediate.x as usize][intermediate.y as usize] != Square::Empty || self.check_check(self.turn, intermediate) {
+                                    possible_castle = false;
+                                    break
+                                }
+                            }
+                            // add the castle move to output
+                            if possible_castle {
+                                output.push(Move::Castle {side:Side::KingsSide});
+                            }
+                        }
+                        
+                        // check Queen side
+                        if let Square::Filled(Piece { color, piece_person: PiecePerson::Rook { moved:false }, id }) = self.get_square(&Coordinate {x: 0, y:row_to_check}) {
+
+                            let mut possible_castle = true;
+
+                            for x in [2, 3] {
+
+                                let intermediate = Coordinate{x, y:row_to_check};
+
+                                // check that the intermediate squares are vacant,
+                                // check that the intermediate squares are not under attack
+
+                                if self.squares[intermediate.x as usize][intermediate.y as usize] != Square::Empty || self.check_check(self.turn, intermediate) {
+                                    possible_castle = false;
+                                    break
+                                }
+                            }
+
+                            if self.squares[1][row_to_check as usize] != Square::Empty {
+                                possible_castle = false;
+                            }
+                            
+                            // add the castle move to output
+                            if possible_castle {
+                                output.push(Move::Castle {side:Side::QueenSide});
+                            }
+                        }
+                    }
+                    
+                    output
+                }
                 PiecePerson::Knight => {
                     self.check_squares(&initial_position, &KNIGHT_SEARCH_OFFSETS)
                 }
@@ -395,7 +459,9 @@ impl Board {
             .filter(|piece_move| {
                 let mut test_board = self.clone();
                 test_board.apply_move(&piece_move);
-                !test_board.check_check(self.turn)
+                // todo: Don't go through the clone process with a castle because, we already check that castling won't produce check
+                !test_board.check_check(self.turn, test_board.locate_king(self.turn))
+                // todo: Replace self.turn with test-board.turn.opposite() as it makes more sense
             })
             .collect()
     }
@@ -421,7 +487,7 @@ impl Board {
                 if let Square::Filled(Piece {
                     color,
                     id,
-                    piece_person: PiecePerson::King,
+                    piece_person: PiecePerson::King { .. },
                 }) = square
                 {
                     if *color == search_color {
@@ -436,11 +502,10 @@ impl Board {
         panic!("NO KING ON BOARD")
     }
 
-    fn check_check(&self, color: PieceColor) -> bool {
-        let king_location = self.locate_king(color);
+    fn check_check(&self, color: PieceColor, king_location : Coordinate ) -> bool {
 
         for (piece_person, offsets) in [
-            (PiecePerson::Rook, ROOK_SEARCH_OFFSETS),
+            (PiecePerson::Rook { moved: true }, ROOK_SEARCH_OFFSETS), // you can't move into check, so the rook must be moved to check you
             (PiecePerson::Bishop, BISHOP_SEARCH_OFFSETS),
         ] {
             'rays: for offset in offsets {
@@ -473,7 +538,7 @@ impl Board {
         }
 
         for (piece_person, offsets) in [
-            (PiecePerson::King, KING_SEARCH_OFFSETS),
+            (PiecePerson::King { moved: true }, KING_SEARCH_OFFSETS), // you can't move into check, so the rook must be moved to check you // KING not knight
             (PiecePerson::Knight, KNIGHT_SEARCH_OFFSETS),
         ] {
             for offset in offsets {
@@ -502,12 +567,11 @@ impl Board {
             }
         }
 
-        // TODO: check for en passant
+        // TODO: check for en passant // unnecessary, because passant can only capture pawns
         false
     }
 
     fn apply_move(&mut self, instruction: &Move) -> Vec<Piece> {
-
         let pieces_to_update = match instruction {
             Move::Regular {
                 initial_position,
@@ -530,9 +594,30 @@ impl Board {
                             },
                             id,
                         },
+
+                        Square::Filled(Piece {
+                            color,
+                            piece_person: PiecePerson::King { moved: false },
+                            id,
+                        }) => Piece {
+                            color,
+                            piece_person: PiecePerson::King { moved: true },
+                            id,
+                        },
+
+                        Square::Filled(Piece {
+                            color,
+                            piece_person: PiecePerson::Rook { moved: false },
+                            id,
+                        }) => Piece {
+                            color,
+                            piece_person: PiecePerson::King { moved: true },
+                            id,
+                        },
+
                         Square::Filled(piece) => piece,
                         _ => {
-                            panic!("Inital Piece not filled")
+                            panic!("Initial Piece not filled, or border encountered")
                         }
                     };
 
@@ -544,22 +629,82 @@ impl Board {
                 move_type,
                 piece_person,
             } => {
-                let old_pawn = self.squares[initial_position.x as usize][initial_position.y as usize];
+                let old_pawn =
+                    self.squares[initial_position.x as usize][initial_position.y as usize];
                 if let Square::Filled(piece) = old_pawn {
                     self.replace_piece(
                         initial_position,
                         final_position,
                         Piece {
-                            piece_person: *piece_person, 
+                            piece_person: *piece_person,
                             ..piece
                         },
                     )
-                } else { 
+                } else {
                     panic!("Original Piece for promotion not filled")
                 }
-            },
-            Move::Castle { .. } => {
-                todo!("Castle")
+            }
+            Move::Castle { side } => {
+                let row_to_act: isize = if self.pawn_going_up() { BOARD_TILE_DIM - 1 } else { 0 };
+                let kings_position = Coordinate { x: 4, y: row_to_act };
+                
+                let new_king_piece = match self.squares[kings_position.x as usize][kings_position.y as usize] {
+                    Square::Filled(Piece {
+                                       color,
+                                       piece_person: PiecePerson::King { moved: false },
+                                       id,
+                                   }) => Piece {
+                        color,
+                        piece_person: PiecePerson::King { moved: true },
+                        id,
+                    },
+                    _ => {panic!("No king where king expected")}
+                };
+                    
+                match side {
+                    Side::KingsSide => {
+                        self.replace_piece(&kings_position, &(kings_position + (2, 0)), new_king_piece);
+                        // same thing for the rook
+                        
+                        let rooks_position = Coordinate { x: BOARD_TILE_DIM - 1, y: row_to_act };
+                        
+                        let new_rook_piece = match self.squares[rooks_position.x as usize][rooks_position.y as usize] {
+                            Square::Filled(Piece {
+                                               color,
+                                               piece_person: PiecePerson::Rook { moved: false },
+                                               id,
+                                           }) => Piece {
+                                color,
+                                piece_person: PiecePerson::Rook { moved: true },
+                                id,
+                            },
+                            _ => {panic!("No rook where rook expected")}
+                        };
+                        self.replace_piece(&rooks_position, &(rooks_position + (-2, 0)), new_rook_piece);
+                    }
+                    Side::QueenSide => {
+                        self.replace_piece(&kings_position, &(kings_position + (-2, 0)), new_king_piece);
+                        // same thing for the rook
+
+                        let rooks_position = Coordinate { x: 0, y: row_to_act };
+
+                        let new_rook_piece = match self.squares[rooks_position.x as usize][rooks_position.y as usize] {
+                            Square::Filled(Piece {
+                                               color,
+                                               piece_person: PiecePerson::Rook { moved: false },
+                                               id,
+                                           }) => Piece {
+                                color,
+                                piece_person: PiecePerson::Rook { moved: true },
+                                id,
+                            },
+                            _ => {panic!("No rook where rook expected")}
+                        };
+                        self.replace_piece(&rooks_position, &(rooks_position + (3, 0)), new_rook_piece);
+                    }
+                }
+
+                vec![]
             }
         };
 
@@ -597,7 +742,7 @@ impl Board {
         let possible_moves = self.get_all_moves_for_turn();
 
         let game_state = if possible_moves.is_empty() {
-            if self.check_check(self.turn) {
+            if self.check_check(self.turn, self.locate_king(self.turn)) {
                 GameState::Checkmate {
                     winner: self.turn.opposite(),
                 }
@@ -630,9 +775,13 @@ impl Board {
         let mut squares: [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize] =
             [[Square::Empty; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
 
-        for (idx, person) in [PiecePerson::Rook, PiecePerson::Knight, PiecePerson::Bishop]
-            .iter()
-            .enumerate()
+        for (idx, person) in [
+            PiecePerson::Rook { moved: false },
+            PiecePerson::Knight,
+            PiecePerson::Bishop,
+        ]
+        .iter()
+        .enumerate()
         {
             squares[idx] = Board::new_row(
                 Piece::new(player_2_color, *person),
@@ -645,18 +794,22 @@ impl Board {
             Piece::new(player_1_color, PiecePerson::Queen),
         );
         squares[4] = Board::new_row(
-            Piece::new(player_2_color, PiecePerson::King),
-            Piece::new(player_1_color, PiecePerson::King),
+            Piece::new(player_2_color, PiecePerson::King { moved: false }),
+            Piece::new(player_1_color, PiecePerson::King { moved: false }),
         );
 
-        for (idx, person) in [PiecePerson::Rook, PiecePerson::Knight, PiecePerson::Bishop]
-            .iter()
-            .rev()
-            .enumerate()
+        for (idx, person) in [
+            PiecePerson::Rook { moved: false },
+            PiecePerson::Knight,
+            PiecePerson::Bishop,
+        ]
+        .iter()
+        .rev()
+        .enumerate()
         {
             squares[idx + 5] = Board::new_row(
-                Piece::new(PieceColor::Black, *person),
-                Piece::new(PieceColor::White, *person),
+                Piece::new(player_2_color, *person),
+                Piece::new(player_1_color, *person),
             );
         }
 
@@ -833,20 +986,20 @@ fn mouse_button_input(
                     }
                 }
             }
-            
+
             if !moved {
-                return; 
+                return;
             }
         }
 
         for possible_move in possible_moves.iter() {
-            match possible_move.piece_move {
+            match &possible_move.piece_move {
                 Move::Regular {
                     initial_position,
                     final_position,
                     move_type,
                 } => {
-                    if board_click_position == final_position {
+                    if board_click_position == *final_position {
                         if let Square::Filled(piece) = board.get_square(&initial_position) {
                             let pieces_to_despawn = board.apply_move(&possible_move.piece_move);
 
@@ -889,7 +1042,7 @@ fn mouse_button_input(
                         let picker_position_x = final_position.x as usize;
                         let picker_position_y =
                             (final_position.y + ((-1 * direction) * idx as isize)) as usize;
-                        
+
                         let transform = generate_transform_for_board_gui(
                             width,
                             height,
@@ -898,7 +1051,7 @@ fn mouse_button_input(
                             picker_position_x,
                             picker_position_y,
                         );
-                        
+
                         // don't use highlight, use another marker component so things don't get lost
 
                         commands.spawn((
@@ -911,9 +1064,9 @@ fn mouse_button_input(
                         commands.spawn((
                             PromotionPicker {
                                 piece_move: Move::Promote {
-                                    initial_position,
-                                    final_position,
-                                    move_type,
+                                    initial_position: *initial_position,
+                                    final_position: *final_position,
+                                    move_type: *move_type,
                                     piece_person: *piece_person,
                                 },
                                 board_position: Coordinate {
@@ -934,7 +1087,40 @@ fn mouse_button_input(
                     }
                     return;
                 }
-                Move::Castle { .. } => {}
+                Move::Castle { side } => {
+                    let final_y: isize = if board.pawn_going_up() { BOARD_TILE_DIM - 1 } else { 0 };
+                    let final_king_x: isize = match side {
+                        Side::QueenSide => {2}
+                        Side::KingsSide => {BOARD_TILE_DIM - 2}
+                    };
+
+                    let final_rook_x: isize = match side {
+                        Side::QueenSide => {3}
+                        Side::KingsSide => {BOARD_TILE_DIM - 3}
+                    };
+                    
+                    if board_click_position == (Coordinate {x: final_king_x, y : final_y}) {
+                        // apply the move to the board
+                        board.apply_move(&possible_move.piece_move);
+                        // move the pieces to their new positions   
+                        
+                        for final_x in [final_king_x, final_rook_x] {
+                            if let Square::Filled(piece) = board.squares[final_x as usize][final_y as usize] {
+                                commands
+                                    .entity(piece.id.unwrap())
+                                    .remove::<Transform>()
+                                    .insert(generate_transform_for_board_gui(
+                                        width,
+                                        height,
+                                        size_x,
+                                        size_y,
+                                        final_x as usize,
+                                        final_y as usize,
+                                    ));
+                            } else { panic!("King not where expected after move") }
+                        }
+                    }
+                }
             }
         }
 
@@ -1028,7 +1214,29 @@ fn mouse_button_input(
                             ));
                         }
                     }
-                    Move::Castle { .. } => {}
+                    Move::Castle { side } => {
+                        let final_y: usize = if board.pawn_going_up() { (BOARD_TILE_DIM - 1) as usize } else { 0 };
+                        let final_x: usize = match side {
+                            Side::QueenSide => {2}
+                            Side::KingsSide => {(BOARD_TILE_DIM - 2) as usize}
+                        }; 
+
+                        commands.spawn((
+                            Highlight,
+                            PossibleMove { piece_move : Move::Castle {side} },
+                            Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
+                            MeshMaterial2d(materials.add(POSSIBLE_MOVE_HIGHLIGHT_COLOR)),
+                            generate_transform_for_board_gui(
+                                width,
+                                height,
+                                size_x,
+                                size_y,
+                                final_x,
+                                final_y,
+                            ),
+                        ));
+                        
+                    }
                 }
             }
         }
