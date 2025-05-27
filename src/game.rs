@@ -180,7 +180,7 @@ enum Move {
     EnPassant {
         initial_position: Coordinate,
         final_position: Coordinate,
-    }
+    },
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -292,7 +292,8 @@ impl Board {
 
     fn get_possible_moves(&self, initial_position: Coordinate) -> Option<Vec<Move>> {
         if let Square::Filled(piece) = self.get_square(&initial_position) {
-            if piece.color != self.turn { // look into making this a part of the if-let statement above 
+            if piece.color != self.turn {
+                // look into making this a part of the if-let statement above
                 return None;
             }
 
@@ -371,23 +372,32 @@ impl Board {
                             }
                         }
                     }
-                    
-                    let row_of_passant = if going_up {3} else {BOARD_TILE_DIM - 4};
-                    
+
+                    let row_of_passant = if going_up { 3 } else { BOARD_TILE_DIM - 4 };
+
                     println!("{} {}", row_of_passant, initial_position.y);
 
                     // check if we are on the rank of en passant
                     if initial_position.y == row_of_passant {
                         // check if the square beside you is filled with a pawn that just moved, if so add a new en passant take move to capture it
-                        
+
                         for x_offset in [1, -1] {
-                            if let Square::Filled(Piece { color, piece_person: PiecePerson::Pawn { first_move }, id }) = self.get_square(&(initial_position + (x_offset, 0))) {
+                            if let Square::Filled(Piece {
+                                color,
+                                piece_person: PiecePerson::Pawn { first_move },
+                                id,
+                            }) = self.get_square(&(initial_position + (x_offset, 0)))
+                            {
                                 if color != self.turn {
                                     if let Some(first_move_number) = first_move {
                                         if first_move_number == self.move_number - 1 {
-                                            output.push(Move::EnPassant { initial_position, final_position: initial_position + (x_offset, direction) });
+                                            output.push(Move::EnPassant {
+                                                initial_position,
+                                                final_position: initial_position
+                                                    + (x_offset, direction),
+                                            });
                                             println!("PASSANT");
-                                            break; 
+                                            break;
                                         }
                                     }
                                 }
@@ -397,76 +407,105 @@ impl Board {
 
                     output
                 }
-                PiecePerson::Rook { .. } => { 
-                    self.cast_ray(&initial_position, &ROOK_SEARCH_OFFSETS)
-                },
+                PiecePerson::Rook { .. } => self.cast_ray(&initial_position, &ROOK_SEARCH_OFFSETS),
                 PiecePerson::Bishop => self.cast_ray(&initial_position, &BISHOP_SEARCH_OFFSETS),
                 PiecePerson::Queen => self.cast_ray(
                     &initial_position,
                     &[ROOK_SEARCH_OFFSETS, BISHOP_SEARCH_OFFSETS].concat(),
                 ),
-                PiecePerson::King { moved : king_moved } => {
+                PiecePerson::King { moved: king_moved } => {
                     output = self.check_squares(&initial_position, &KING_SEARCH_OFFSETS);
 
                     // determine if we are on the white or black side of the board
-                    let row_to_check: isize = if self.pawn_going_up() { BOARD_TILE_DIM - 1 } else { 0 };
-                    
+                    let row_to_check: isize = if self.pawn_going_up() {
+                        BOARD_TILE_DIM - 1
+                    } else {
+                        0
+                    };
+
                     // check that the king hasn't moved
-                    if king_moved == false && !self.check_check(self.turn, Coordinate { x: 4, y: row_to_check }) {
-                        
+                    if king_moved == false
+                        && !self.check_check(
+                            self.turn,
+                            Coordinate {
+                                x: 4,
+                                y: row_to_check,
+                            },
+                        )
+                    {
                         // check king side
                         // check that the rook hasn't moved
-                        if let Square::Filled(Piece { color, piece_person: PiecePerson::Rook { moved:false }, id }) = self.get_square(&Coordinate {x: BOARD_TILE_DIM-1, y:row_to_check}) {
-                            
+                        if let Square::Filled(Piece {
+                            color,
+                            piece_person: PiecePerson::Rook { moved: false },
+                            id,
+                        }) = self.get_square(&Coordinate {
+                            x: BOARD_TILE_DIM - 1,
+                            y: row_to_check,
+                        }) {
                             let mut possible_castle = true;
-                            
+
                             for x in [5, 6] {
-                                
-                                let intermediate = Coordinate{x, y:row_to_check};
+                                let intermediate = Coordinate { x, y: row_to_check };
 
                                 // check that the intermediate squares are vacant,
                                 // check that the intermediate squares are not under attack
-                                
-                                if self.squares[intermediate.x as usize][intermediate.y as usize] != Square::Empty || self.check_check(self.turn, intermediate) {
+
+                                if self.squares[intermediate.x as usize][intermediate.y as usize]
+                                    != Square::Empty
+                                    || self.check_check(self.turn, intermediate)
+                                {
                                     possible_castle = false;
-                                    break
+                                    break;
                                 }
                             }
                             // add the castle move to output
                             if possible_castle {
-                                output.push(Move::Castle {side:Side::KingsSide});
+                                output.push(Move::Castle {
+                                    side: Side::KingsSide,
+                                });
                             }
                         }
-                        
-                        // check Queen side
-                        if let Square::Filled(Piece { color, piece_person: PiecePerson::Rook { moved:false }, id }) = self.get_square(&Coordinate {x: 0, y:row_to_check}) {
 
+                        // check Queen side
+                        if let Square::Filled(Piece {
+                            color,
+                            piece_person: PiecePerson::Rook { moved: false },
+                            id,
+                        }) = self.get_square(&Coordinate {
+                            x: 0,
+                            y: row_to_check,
+                        }) {
                             let mut possible_castle = true;
 
                             for x in [2, 3] {
-
-                                let intermediate = Coordinate{x, y:row_to_check};
+                                let intermediate = Coordinate { x, y: row_to_check };
 
                                 // check that the intermediate squares are vacant,
                                 // check that the intermediate squares are not under attack
 
-                                if self.squares[intermediate.x as usize][intermediate.y as usize] != Square::Empty || self.check_check(self.turn, intermediate) {
+                                if self.squares[intermediate.x as usize][intermediate.y as usize]
+                                    != Square::Empty
+                                    || self.check_check(self.turn, intermediate)
+                                {
                                     possible_castle = false;
-                                    break
+                                    break;
                                 }
                             }
 
                             if self.squares[1][row_to_check as usize] != Square::Empty {
                                 possible_castle = false;
                             }
-                            
+
                             // add the castle move to output
                             if possible_castle {
-                                output.push(Move::Castle {side:Side::QueenSide});
+                                output.push(Move::Castle {
+                                    side: Side::QueenSide,
+                                });
                             }
                         }
                     }
-                    
+
                     output
                 }
                 PiecePerson::Knight => {
@@ -527,8 +566,7 @@ impl Board {
         panic!("NO KING ON BOARD")
     }
 
-    fn check_check(&self, color: PieceColor, king_location : Coordinate ) -> bool {
-
+    fn check_check(&self, color: PieceColor, king_location: Coordinate) -> bool {
         for (piece_person, offsets) in [
             (PiecePerson::Rook { moved: true }, ROOK_SEARCH_OFFSETS), // you can't move into check, so the rook must be moved to check you
             (PiecePerson::Bishop, BISHOP_SEARCH_OFFSETS),
@@ -669,76 +707,123 @@ impl Board {
                 }
             }
             Move::Castle { side } => {
-                let row_to_act: isize = if self.pawn_going_up() { BOARD_TILE_DIM - 1 } else { 0 };
-                let kings_position = Coordinate { x: 4, y: row_to_act };
-                
-                let new_king_piece = match self.squares[kings_position.x as usize][kings_position.y as usize] {
-                    Square::Filled(Piece {
-                                       color,
-                                       piece_person: PiecePerson::King { moved: false },
-                                       id,
-                                   }) => Piece {
-                        color,
-                        piece_person: PiecePerson::King { moved: true },
-                        id,
-                    },
-                    _ => {panic!("No king where king expected")}
+                let row_to_act: isize = if self.pawn_going_up() {
+                    BOARD_TILE_DIM - 1
+                } else {
+                    0
                 };
-                    
+                let kings_position = Coordinate {
+                    x: 4,
+                    y: row_to_act,
+                };
+
+                let new_king_piece =
+                    match self.squares[kings_position.x as usize][kings_position.y as usize] {
+                        Square::Filled(Piece {
+                            color,
+                            piece_person: PiecePerson::King { moved: false },
+                            id,
+                        }) => Piece {
+                            color,
+                            piece_person: PiecePerson::King { moved: true },
+                            id,
+                        },
+                        _ => {
+                            panic!("No king where king expected")
+                        }
+                    };
+
                 match side {
                     Side::KingsSide => {
-                        self.replace_piece(&kings_position, &(kings_position + (2, 0)), new_king_piece);
+                        self.replace_piece(
+                            &kings_position,
+                            &(kings_position + (2, 0)),
+                            new_king_piece,
+                        );
                         // same thing for the rook
-                        
-                        let rooks_position = Coordinate { x: BOARD_TILE_DIM - 1, y: row_to_act };
-                        
-                        let new_rook_piece = match self.squares[rooks_position.x as usize][rooks_position.y as usize] {
+
+                        let rooks_position = Coordinate {
+                            x: BOARD_TILE_DIM - 1,
+                            y: row_to_act,
+                        };
+
+                        let new_rook_piece = match self.squares[rooks_position.x as usize]
+                            [rooks_position.y as usize]
+                        {
                             Square::Filled(Piece {
-                                               color,
-                                               piece_person: PiecePerson::Rook { moved: false },
-                                               id,
-                                           }) => Piece {
+                                color,
+                                piece_person: PiecePerson::Rook { moved: false },
+                                id,
+                            }) => Piece {
                                 color,
                                 piece_person: PiecePerson::Rook { moved: true },
                                 id,
                             },
-                            _ => {panic!("No rook where rook expected")}
+                            _ => {
+                                panic!("No rook where rook expected")
+                            }
                         };
-                        self.replace_piece(&rooks_position, &(rooks_position + (-2, 0)), new_rook_piece);
+                        self.replace_piece(
+                            &rooks_position,
+                            &(rooks_position + (-2, 0)),
+                            new_rook_piece,
+                        );
                     }
                     Side::QueenSide => {
-                        self.replace_piece(&kings_position, &(kings_position + (-2, 0)), new_king_piece);
+                        self.replace_piece(
+                            &kings_position,
+                            &(kings_position + (-2, 0)),
+                            new_king_piece,
+                        );
                         // same thing for the rook
 
-                        let rooks_position = Coordinate { x: 0, y: row_to_act };
+                        let rooks_position = Coordinate {
+                            x: 0,
+                            y: row_to_act,
+                        };
 
-                        let new_rook_piece = match self.squares[rooks_position.x as usize][rooks_position.y as usize] {
+                        let new_rook_piece = match self.squares[rooks_position.x as usize]
+                            [rooks_position.y as usize]
+                        {
                             Square::Filled(Piece {
-                                               color,
-                                               piece_person: PiecePerson::Rook { moved: false },
-                                               id,
-                                           }) => Piece {
+                                color,
+                                piece_person: PiecePerson::Rook { moved: false },
+                                id,
+                            }) => Piece {
                                 color,
                                 piece_person: PiecePerson::Rook { moved: true },
                                 id,
                             },
-                            _ => {panic!("No rook where rook expected")}
+                            _ => {
+                                panic!("No rook where rook expected")
+                            }
                         };
-                        self.replace_piece(&rooks_position, &(rooks_position + (3, 0)), new_rook_piece);
+                        self.replace_piece(
+                            &rooks_position,
+                            &(rooks_position + (3, 0)),
+                            new_rook_piece,
+                        );
                     }
                 }
 
                 vec![]
             }
-            Move::EnPassant { initial_position, final_position } => {
-                
-                if let Square::Filled(piece) = self.squares[initial_position.x as usize][initial_position.y as usize] {
+            Move::EnPassant {
+                initial_position,
+                final_position,
+            } => {
+                if let Square::Filled(piece) =
+                    self.squares[initial_position.x as usize][initial_position.y as usize]
+                {
                     self.replace_piece(&initial_position, &final_position, piece);
                 }
-                
-                if let Square::Filled(piece) = self.squares[final_position.x as usize][initial_position.y as usize] {
-                    self.squares[final_position.x as usize][initial_position.y as usize] = Square::Empty;
-                    return vec![piece]
+
+                if let Square::Filled(piece) =
+                    self.squares[final_position.x as usize][initial_position.y as usize]
+                {
+                    self.squares[final_position.x as usize][initial_position.y as usize] =
+                        Square::Empty;
+                    return vec![piece];
                 } else {
                     panic!("En Passant invalid, no piece to capture")
                 }
@@ -1035,7 +1120,11 @@ fn mouse_button_input(
                     initial_position,
                     final_position,
                     ..
-                } | Move::EnPassant { initial_position, final_position }=> {
+                }
+                | Move::EnPassant {
+                    initial_position,
+                    final_position,
+                } => {
                     if board_click_position == *final_position {
                         if let Square::Filled(piece) = board.get_square(&initial_position) {
                             let pieces_to_despawn = board.apply_move(&possible_move.piece_move);
@@ -1125,24 +1214,35 @@ fn mouse_button_input(
                     return;
                 }
                 Move::Castle { side } => {
-                    let final_y: isize = if board.pawn_going_up() { BOARD_TILE_DIM - 1 } else { 0 };
+                    let final_y: isize = if board.pawn_going_up() {
+                        BOARD_TILE_DIM - 1
+                    } else {
+                        0
+                    };
                     let final_king_x: isize = match side {
-                        Side::QueenSide => {2}
-                        Side::KingsSide => {BOARD_TILE_DIM - 2}
+                        Side::QueenSide => 2,
+                        Side::KingsSide => BOARD_TILE_DIM - 2,
                     };
 
                     let final_rook_x: isize = match side {
-                        Side::QueenSide => {3}
-                        Side::KingsSide => {BOARD_TILE_DIM - 3}
+                        Side::QueenSide => 3,
+                        Side::KingsSide => BOARD_TILE_DIM - 3,
                     };
-                    
-                    if board_click_position == (Coordinate {x: final_king_x, y : final_y}) {
+
+                    if board_click_position
+                        == (Coordinate {
+                            x: final_king_x,
+                            y: final_y,
+                        })
+                    {
                         // apply the move to the board
                         board.apply_move(&possible_move.piece_move);
-                        // move the pieces to their new positions   
-                        
+                        // move the pieces to their new positions
+
                         for final_x in [final_king_x, final_rook_x] {
-                            if let Square::Filled(piece) = board.squares[final_x as usize][final_y as usize] {
+                            if let Square::Filled(piece) =
+                                board.squares[final_x as usize][final_y as usize]
+                            {
                                 commands
                                     .entity(piece.id.unwrap())
                                     .remove::<Transform>()
@@ -1154,11 +1254,13 @@ fn mouse_button_input(
                                         final_x as usize,
                                         final_y as usize,
                                     ));
-                            } else { panic!("King not where expected after move") }
+                            } else {
+                                panic!("King not where expected after move")
+                            }
                         }
-                        
+
                         moved = true;
-                        break; 
+                        break;
                     }
                 }
             }
@@ -1213,10 +1315,8 @@ fn mouse_button_input(
 
             for piece_move in moves {
                 match piece_move {
-                    Move::Regular {
-                        final_position,
-                        ..
-                    } | Move::EnPassant {final_position, ..}=> {
+                    Move::Regular { final_position, .. }
+                    | Move::EnPassant { final_position, .. } => {
                         commands.spawn((
                             Highlight,
                             PossibleMove { piece_move },
@@ -1254,27 +1354,27 @@ fn mouse_button_input(
                         }
                     }
                     Move::Castle { side } => {
-                        let final_y: usize = if board.pawn_going_up() { (BOARD_TILE_DIM - 1) as usize } else { 0 };
+                        let final_y: usize = if board.pawn_going_up() {
+                            (BOARD_TILE_DIM - 1) as usize
+                        } else {
+                            0
+                        };
                         let final_x: usize = match side {
-                            Side::QueenSide => {2}
-                            Side::KingsSide => {(BOARD_TILE_DIM - 2) as usize}
-                        }; 
+                            Side::QueenSide => 2,
+                            Side::KingsSide => (BOARD_TILE_DIM - 2) as usize,
+                        };
 
                         commands.spawn((
                             Highlight,
-                            PossibleMove { piece_move : Move::Castle {side} },
+                            PossibleMove {
+                                piece_move: Move::Castle { side },
+                            },
                             Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
                             MeshMaterial2d(materials.add(POSSIBLE_MOVE_HIGHLIGHT_COLOR)),
                             generate_transform_for_board_gui(
-                                width,
-                                height,
-                                size_x,
-                                size_y,
-                                final_x,
-                                final_y,
+                                width, height, size_x, size_y, final_x, final_y,
                             ),
                         ));
-                        
                     }
                 }
             }
