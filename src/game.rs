@@ -177,6 +177,10 @@ enum Move {
     Castle {
         side: Side,
     },
+    EnPassant {
+        initial_position: Coordinate,
+        final_position: Coordinate,
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -367,8 +371,29 @@ impl Board {
                             }
                         }
                     }
+                    
+                    let row_of_passant = if going_up {3} else {BOARD_TILE_DIM - 4};
+                    
+                    println!("{} {}", row_of_passant, initial_position.y);
 
-                    // TODO: implement en passant
+                    // check if we are on the rank of en passant
+                    if initial_position.y == row_of_passant {
+                        // check if the square beside you is filled with a pawn that just moved, if so add a new en passant take move to capture it
+                        
+                        for x_offset in [1, -1] {
+                            if let Square::Filled(Piece { color, piece_person: PiecePerson::Pawn { first_move }, id }) = self.get_square(&(initial_position + (x_offset, 0))) {
+                                if color != self.turn {
+                                    if let Some(first_move_number) = first_move {
+                                        if first_move_number == self.move_number - 1 {
+                                            output.push(Move::EnPassant { initial_position, final_position: initial_position + (x_offset, direction) });
+                                            println!("PASSANT");
+                                            break; 
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     output
                 }
@@ -567,7 +592,6 @@ impl Board {
             }
         }
 
-        // TODO: check for en passant // unnecessary, because passant can only capture pawns
         false
     }
 
@@ -705,6 +729,19 @@ impl Board {
                 }
 
                 vec![]
+            }
+            Move::EnPassant { initial_position, final_position } => {
+                
+                if let Square::Filled(piece) = self.squares[initial_position.x as usize][initial_position.y as usize] {
+                    self.replace_piece(&initial_position, &final_position, piece);
+                }
+                
+                if let Square::Filled(piece) = self.squares[final_position.x as usize][initial_position.y as usize] {
+                    self.squares[final_position.x as usize][initial_position.y as usize] = Square::Empty;
+                    return vec![piece]
+                } else {
+                    panic!("En Passant invalid, no piece to capture")
+                }
             }
         };
 
@@ -997,8 +1034,8 @@ fn mouse_button_input(
                 Move::Regular {
                     initial_position,
                     final_position,
-                    move_type,
-                } => {
+                    ..
+                } | Move::EnPassant { initial_position, final_position }=> {
                     if board_click_position == *final_position {
                         if let Square::Filled(piece) = board.get_square(&initial_position) {
                             let pieces_to_despawn = board.apply_move(&possible_move.piece_move);
@@ -1119,6 +1156,9 @@ fn mouse_button_input(
                                     ));
                             } else { panic!("King not where expected after move") }
                         }
+                        
+                        moved = true;
+                        break; 
                     }
                 }
             }
@@ -1174,10 +1214,9 @@ fn mouse_button_input(
             for piece_move in moves {
                 match piece_move {
                     Move::Regular {
-                        initial_position,
                         final_position,
-                        move_type,
-                    } => {
+                        ..
+                    } | Move::EnPassant {final_position, ..}=> {
                         commands.spawn((
                             Highlight,
                             PossibleMove { piece_move },
