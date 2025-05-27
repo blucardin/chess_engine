@@ -567,47 +567,69 @@ impl Board {
     }
 
     fn check_check(&self, color: PieceColor, king_location: Coordinate) -> bool {
-        for (piece_person, offsets) in [
-            (PiecePerson::Rook { moved: true }, ROOK_SEARCH_OFFSETS), // you can't move into check, so the rook must be moved to check you
-            (PiecePerson::Bishop, BISHOP_SEARCH_OFFSETS),
+        for (piece_persons, offsets) in [
+            (
+                &[
+                    PiecePerson::Rook { moved: true },
+                    PiecePerson::Rook { moved: false },
+                ][..],
+                ROOK_SEARCH_OFFSETS,
+            ), // you can't move into check, so the rook must be moved to check you // todo: THIS IS WRONG, CHANGE TO ACCEPT EITHER A MOVED OR NON_MOVED ROOK
+            (&[PiecePerson::Bishop][..], BISHOP_SEARCH_OFFSETS),
         ] {
-            'rays: for offset in offsets {
+            for offset in offsets {
                 let mut sight = king_location;
 
                 'squares: loop {
                     sight = sight + offset;
                     match self.get_square(&sight) {
-                        Square::Empty => {
-                            continue 'squares;
-                        }
+                        Square::Empty => {}
 
                         Square::Filled(piece) => {
-                            if piece.color == color {
-                                continue 'rays;
+                            if piece.color != color {
+                                if piece.piece_person == PiecePerson::Queen {
+                                    println!("Check found: {:?}", PiecePerson::Queen);
+                                    return true;
+                                }
+
+                                for piece_person in piece_persons {
+                                    if piece.piece_person == *piece_person {
+                                        println!("Check found: {:?}", *piece_person);
+                                        return true;
+                                    }
+                                }
                             }
 
-                            if piece.piece_person == PiecePerson::Queen
-                                || piece.piece_person == piece_person
-                            {
-                                return true;
-                            }
+                            break 'squares;
                         }
+
                         Square::Boundary => {
-                            continue 'rays;
+                            break 'squares;
                         }
                     }
                 }
             }
         }
 
-        for (piece_person, offsets) in [
-            (PiecePerson::King { moved: true }, KING_SEARCH_OFFSETS), // you can't move into check, so the rook must be moved to check you // KING not knight
-            (PiecePerson::Knight, KNIGHT_SEARCH_OFFSETS),
+        for (piece_persons, offsets) in [
+            (
+                &[
+                    PiecePerson::King { moved: true },
+                    PiecePerson::King { moved: false },
+                ][..],
+                KING_SEARCH_OFFSETS,
+            ), // you can't move into check, so the rook must be moved to check you // KING not knight // todo: THIS IS WRONG, CHANGE TO ACCEPT EITHER A MOVED OR NON_MOVED KiNG
+            (&[PiecePerson::Knight][..], KNIGHT_SEARCH_OFFSETS),
         ] {
             for offset in offsets {
                 if let Square::Filled(piece) = self.get_square(&(king_location + offset)) {
-                    if piece.color != color && piece.piece_person == piece_person {
-                        return true;
+                    if piece.color != color {
+                        for piece_person in piece_persons {
+                            if piece.piece_person == *piece_person {
+                                println!("Check found: {:?}", *piece_person);
+                                return true;
+                            }
+                        }
                     }
                 }
             }
@@ -624,6 +646,7 @@ impl Board {
             if let Square::Filled(piece) = self.get_square(&(king_location + offset)) {
                 if let PiecePerson::Pawn { .. } = piece.piece_person {
                     if piece.color != color {
+                        println!("Check found: {:?}", piece.piece_person);
                         return true;
                     }
                 }
@@ -823,7 +846,7 @@ impl Board {
                 {
                     self.squares[final_position.x as usize][initial_position.y as usize] =
                         Square::Empty;
-                    return vec![piece];
+                    vec![piece]
                 } else {
                     panic!("En Passant invalid, no piece to capture")
                 }
