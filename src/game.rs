@@ -574,7 +574,7 @@ impl Board {
                     PiecePerson::Rook { moved: false },
                 ][..],
                 ROOK_SEARCH_OFFSETS,
-            ), // you can't move into check, so the rook must be moved to check you // todo: THIS IS WRONG, CHANGE TO ACCEPT EITHER A MOVED OR NON_MOVED ROOK
+            ), 
             (&[PiecePerson::Bishop][..], BISHOP_SEARCH_OFFSETS),
         ] {
             for offset in offsets {
@@ -618,7 +618,7 @@ impl Board {
                     PiecePerson::King { moved: false },
                 ][..],
                 KING_SEARCH_OFFSETS,
-            ), // you can't move into check, so the rook must be moved to check you // KING not knight // todo: THIS IS WRONG, CHANGE TO ACCEPT EITHER A MOVED OR NON_MOVED KiNG
+            ), 
             (&[PiecePerson::Knight][..], KNIGHT_SEARCH_OFFSETS),
         ] {
             for offset in offsets {
