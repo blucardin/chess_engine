@@ -1,9 +1,8 @@
 use bevy::input::common_conditions::*;
 use bevy::prelude::*;
 
-pub mod chess_board;
-use chess_board::*;
-use chess_board::Move; 
+use chess::*;
+use chess::Move; 
 
 pub struct Game;
 

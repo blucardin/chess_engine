@@ -42,7 +42,7 @@ const KNIGHT_SEARCH_OFFSETS: [(isize, isize); 8] = [
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum PieceColor {
+pub enum PieceColor {
     Black,
     White,
 }
@@ -55,7 +55,7 @@ impl PieceColor {
         }
     }
 
-    pub(crate) fn file_string(&self) -> String {
+    pub fn file_string(&self) -> String {
         String::from(match self {
             PieceColor::Black => "black",
             PieceColor::White => "white",
@@ -78,7 +78,7 @@ impl PiecePerson {
         PiecePerson::Pawn { first_move: None }
     }
 
-    pub(crate) fn file_string(&self) -> String {
+    pub fn file_string(&self) -> String {
         String::from(match self {
             PiecePerson::Pawn { first_move: _ } => "pawn",
             PiecePerson::Rook { .. } => "rook",
@@ -272,11 +272,11 @@ impl Board {
         output
     }
 
-    pub(crate) fn pawn_going_up(&self) -> bool {
+    pub fn pawn_going_up(&self) -> bool {
         self.turn == self.player_1_color
     }
 
-    pub(crate) fn get_possible_moves(&self, initial_position: Coordinate) -> Option<Vec<Move>> {
+    pub fn get_possible_moves(&self, initial_position: Coordinate) -> Option<Vec<Move>> {
         if let Square::Filled(piece) = self.get_square(&initial_position) {
             if piece.color != self.turn {
                 // look into making this a part of the if-let statement above
@@ -514,7 +514,7 @@ impl Board {
             .collect()
     }
 
-    pub(crate) fn get_all_moves_for_turn(&self) -> Vec<Move> {
+    pub fn get_all_moves_for_turn(&self) -> Vec<Move> {
         let mut output = Vec::new();
         // todo: Make this faster by not enumerating over everything, just looping
         for (idx, row) in self.squares.iter().enumerate() {
@@ -652,7 +652,7 @@ impl Board {
         false
     }
 
-    pub(crate) fn apply_move(&mut self, instruction: &Move) {
+    pub fn apply_move(&mut self, instruction: &Move) {
         // todo: make apply_move not return the vector of change pieces now
         let pieces_to_update = match instruction {
             Move::Regular {
@@ -852,7 +852,7 @@ impl Board {
         self.squares[ix][iy] = Square::Empty;
     }
 
-    pub(crate) fn find_computer_move(&self, all_possible_moves: Vec<Move>) -> Move {
+    pub fn find_computer_move(&self, all_possible_moves: Vec<Move>) -> Move {
         // get all the possible moves
         // let all_possible_moves = self.get_all_moves_for_turn();
 
@@ -862,7 +862,7 @@ impl Board {
         all_possible_moves.choose(&mut rand::rng()).unwrap().clone()
     }
 
-    pub(crate) fn outcome(&self) -> GameState {
+    pub fn outcome(&self) -> GameState {
         let possible_moves = self.get_all_moves_for_turn();
 
         let game_state = if possible_moves.is_empty() {
@@ -893,7 +893,7 @@ impl Board {
         ]
     }
 
-    pub(crate) fn new(player_1_color: PieceColor) -> Self {
+    pub fn new(player_1_color: PieceColor) -> Self {
         let player_2_color = player_1_color.opposite();
 
         let mut squares: [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize] =

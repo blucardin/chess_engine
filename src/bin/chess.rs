@@ -1,6 +1,7 @@
+
 mod game;
 
-use game::chess_board::DEFAULT_BOARD_HEIGHT;
+use chess::DEFAULT_BOARD_HEIGHT;
 use bevy::prelude::*;
 
 fn main() {
