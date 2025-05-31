@@ -13,19 +13,31 @@ impl Plugin for Game {
             computer_player: true,
         });
         app.insert_resource(Board::new(PieceColor::White));
+        app.insert_state(ComputerTurnState::Player);
         app.add_systems(Startup, setup);
         app.add_systems(
             Update,
-            mouse_button_input.run_if(input_just_pressed(MouseButton::Left)),
+            (
+                mouse_button_input
+                .run_if(input_just_pressed(MouseButton::Left))
+                .run_if(in_state(ComputerTurnState::Player)), 
+            computer_move
+                .run_if(in_state(ComputerTurnState::Computer))
+            )
         );
     }
+}
+
+#[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+enum ComputerTurnState {
+    Computer,
+    Player
 }
 
 #[derive(Resource, Clone)]
 struct GameSettings {
     computer_player: bool,
 }
-
 
 
 fn generate_transform_for_board_gui(
@@ -146,6 +158,7 @@ fn mouse_button_input(
     promotions: Query<&PromotionPicker>,
     promotion_pickers: Query<Entity, With<PromotionPicker>>,
     asset_server: Res<AssetServer>,
+    mut next_computer_turn_state: ResMut<NextState<ComputerTurnState>>,
 ) {
     let width = window.width();
     let height = window.height();
@@ -271,7 +284,15 @@ fn mouse_button_input(
             .for_each(|current_highlight| commands.entity(current_highlight).despawn());
 
         if moved {
-            let (game_state, all_possible_moves) = board.outcome();
+            let game_state = board.outcome();
+
+            // remove all the pieces
+            gui_pieces
+                .iter()
+                .for_each(|gui_piece| commands.entity(gui_piece).despawn());
+
+            // redraw all the pieces
+            draw_pieces(&mut commands, &board, &window, &asset_server);
 
             match game_state {
                 GameState::Playing => {}
@@ -304,60 +325,11 @@ fn mouse_button_input(
                     return;
                 }
             }
+            
 
             if game_settings.computer_player {
-                // call board.find_computer_move()
-                let computer_move = board.find_computer_move(all_possible_moves);
-
-                println!("computer_move: {:?}", computer_move);
-                board.apply_move(
-                    &computer_move,
-                );
-
-                let (game_state, all_possible_moves) = board.outcome();
-
-                match game_state {
-                    GameState::Playing => {}
-                    GameState::Checkmate { winner } => {
-                        let text = match winner {
-                            PieceColor::Black => "Checkmate, winner is Black",
-                            PieceColor::White => "Checkmate, winner is White",
-                        };
-                        commands.spawn((
-                            Text::new(text),
-                            Node {
-                                position_type: PositionType::Absolute,
-                                top: Val::Px(12.0),
-                                left: Val::Px(12.0),
-                                ..default()
-                            },
-                        ));
-                        return;
-                    }
-                    GameState::Draw => {
-                        commands.spawn((
-                            Text::new("DRAW"),
-                            Node {
-                                position_type: PositionType::Absolute,
-                                top: Val::Px(12.0),
-                                left: Val::Px(12.0),
-                                ..default()
-                            },
-                        ));
-                        return;
-                    }
-                }
-
-                println!("moved for the computer: {:?}", computer_move);
+                next_computer_turn_state.set(ComputerTurnState::Computer);                
             }
-
-            // remove all the pieces
-            gui_pieces
-                .iter()
-                .for_each(|gui_piece| commands.entity(gui_piece).despawn());
-
-            // redraw all the pieces
-            draw_pieces(&mut commands, &board, &window, &asset_server);
 
             return;
         }
@@ -431,4 +403,67 @@ fn mouse_button_input(
     } else {
         println!("Cursor is not in the game window.");
     }
+}
+
+fn computer_move(
+    // buttons: Res<ButtonInput<MouseButton>>,
+    mut board: ResMut<Board>,
+    game_settings: Res<GameSettings>,
+    window: Single<&mut Window>,
+    mut commands: Commands,
+    gui_pieces: Query<Entity, With<PieceMarker>>,
+    asset_server: Res<AssetServer>,
+    mut next_computer_turn_state: ResMut<NextState<ComputerTurnState>>,
+) {
+    let computer_move = board.find_computer_move(board.get_all_moves_for_turn());
+
+    println!("computer_move: {:?}", computer_move);
+    board.apply_move(
+        &computer_move,
+    );
+
+    // remove all the pieces
+    gui_pieces
+        .iter()
+        .for_each(|gui_piece| commands.entity(gui_piece).despawn());
+
+    // redraw all the pieces
+    draw_pieces(&mut commands, &board, &window, &asset_server);
+
+    let game_state = board.outcome();
+
+    // todo: extract this as a function
+    match game_state {
+        GameState::Playing => {}
+        GameState::Checkmate { winner } => {
+            let text = match winner {
+                PieceColor::Black => "Checkmate, winner is Black",
+                PieceColor::White => "Checkmate, winner is White",
+            };
+            commands.spawn((
+                Text::new(text),
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(12.0),
+                    left: Val::Px(12.0),
+                    ..default()
+                },
+            ));
+            return;
+        }
+        GameState::Draw => {
+            commands.spawn((
+                Text::new("DRAW"),
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(12.0),
+                    left: Val::Px(12.0),
+                    ..default()
+                },
+            ));
+            return;
+        }
+    }
+    
+    next_computer_turn_state.set(ComputerTurnState::Player);
 }

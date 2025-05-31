@@ -514,7 +514,7 @@ impl Board {
             .collect()
     }
 
-    fn get_all_moves_for_turn(&self) -> Vec<Move> {
+    pub(crate) fn get_all_moves_for_turn(&self) -> Vec<Move> {
         let mut output = Vec::new();
         // todo: Make this faster by not enumerating over everything, just looping
         for (idx, row) in self.squares.iter().enumerate() {
@@ -862,7 +862,7 @@ impl Board {
         all_possible_moves.choose(&mut rand::rng()).unwrap().clone()
     }
 
-    pub(crate) fn outcome(&self) -> (GameState, Vec<Move>) {
+    pub(crate) fn outcome(&self) -> GameState {
         let possible_moves = self.get_all_moves_for_turn();
 
         let game_state = if possible_moves.is_empty() {
@@ -877,7 +877,7 @@ impl Board {
             GameState::Playing
         };
 
-        (game_state, possible_moves)
+        game_state
     }
 
     fn new_row(right_piece: Piece, left_piece: Piece) -> [Square; BOARD_TILE_DIM as usize] {
