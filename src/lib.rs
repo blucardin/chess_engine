@@ -1,7 +1,12 @@
+use bevy::prelude::{Color, Resource};
 use rand::seq::IndexedRandom;
 use std::cmp::PartialEq;
 use std::ops;
-use bevy::prelude::{Color, Resource};
+
+extern crate either;
+
+use either::Either;
+use std::iter;
 // 0.9.0
 
 pub const BOARD_TILE_DIM: isize = 8;
@@ -283,7 +288,7 @@ impl Board {
                 return None;
             }
 
-            println!("Generating possible moves for {:?}", piece);
+            // println!("Generating possible moves for {:?}", piece);
 
             let mut output = Vec::new();
 
@@ -369,9 +374,9 @@ impl Board {
 
                         for x_offset in [1, -1] {
                             if let Square::Filled(Piece {
-                                                      color,
-                                                      piece_person: PiecePerson::Pawn { first_move },
-                                                  }) = self.get_square(&(initial_position + (x_offset, 0)))
+                                color,
+                                piece_person: PiecePerson::Pawn { first_move },
+                            }) = self.get_square(&(initial_position + (x_offset, 0)))
                             {
                                 if color != self.turn {
                                     if let Some(first_move_number) = first_move {
@@ -381,7 +386,7 @@ impl Board {
                                                 final_position: initial_position
                                                     + (x_offset, direction),
                                             });
-                                            println!("PASSANT");
+                                            // println!("PASSANT");
                                             break;
                                         }
                                     }
@@ -411,19 +416,19 @@ impl Board {
                     // check that the king hasn't moved
                     if king_moved == false
                         && !self.check_check(
-                        self.turn,
-                        Coordinate {
-                            x: 4,
-                            y: row_to_check,
-                        },
-                    )
+                            self.turn,
+                            Coordinate {
+                                x: 4,
+                                y: row_to_check,
+                            },
+                        )
                     {
                         // check king side
                         // check that the rook hasn't moved
                         if let Square::Filled(Piece {
-                                                  color: _color,
-                                                  piece_person: PiecePerson::Rook { moved: false },
-                                              }) = self.get_square(&Coordinate {
+                            color: _color,
+                            piece_person: PiecePerson::Rook { moved: false },
+                        }) = self.get_square(&Coordinate {
                             x: BOARD_TILE_DIM - 1,
                             y: row_to_check,
                         }) {
@@ -453,9 +458,9 @@ impl Board {
 
                         // check Queen side
                         if let Square::Filled(Piece {
-                                                  color: _color,
-                                                  piece_person: PiecePerson::Rook { moved: false },
-                                              }) = self.get_square(&Coordinate {
+                            color: _color,
+                            piece_person: PiecePerson::Rook { moved: false },
+                        }) = self.get_square(&Coordinate {
                             x: 0,
                             y: row_to_check,
                         }) {
@@ -505,7 +510,7 @@ impl Board {
             .into_iter()
             .filter(|piece_move| {
                 let mut test_board = self.clone();
-                println!("{:?}", piece_move);
+                // println!("{:?}", piece_move);
                 test_board.apply_move(&piece_move);
                 // todo: Don't go through the clone process with a castle because, we already check that castling won't produce check
                 !test_board.check_check(self.turn, test_board.locate_king(self.turn))
@@ -531,15 +536,15 @@ impl Board {
     }
 
     fn locate_king(&self, search_color: PieceColor) -> Coordinate {
-        println!("Locating king");
-        println!("Second column of board: {:?}", self.squares[1]);
-        println!("Fifth column of board: {:?}", self.squares[4]);
+        // println!("Locating king");
+        // println!("Second column of board: {:?}", self.squares[1]);
+        // println!("Fifth column of board: {:?}", self.squares[4]);
         for (idx, row) in self.squares.iter().enumerate() {
             for (idy, square) in row.iter().enumerate() {
                 if let Square::Filled(Piece {
-                                          color,
-                                          piece_person: PiecePerson::King { .. },
-                                      }) = square
+                    color,
+                    piece_person: PiecePerson::King { .. },
+                }) = square
                 {
                     if *color == search_color {
                         return Coordinate {
@@ -554,10 +559,10 @@ impl Board {
     }
 
     fn check_check(&self, color: PieceColor, king_location: Coordinate) -> bool {
-        println!(
-            "Checking for any checks. King Location: {:?}",
-            king_location
-        );
+        // println!(
+        //     "Checking for any checks. King Location: {:?}",
+        //     king_location
+        // );
 
         for (piece_persons, offsets) in [
             (
@@ -569,7 +574,7 @@ impl Board {
             ),
             (&[PiecePerson::Bishop][..], BISHOP_SEARCH_OFFSETS),
         ] {
-            println!("Checking the offsets for {:?}", piece_persons);
+            // println!("Checking the offsets for {:?}", piece_persons);
 
             for offset in offsets {
                 let mut sight = king_location;
@@ -577,20 +582,20 @@ impl Board {
                     sight = sight + offset;
                     match self.get_square(&sight) {
                         Square::Empty => {
-                            println!("Skipping empty square {:?}", sight);
+                            // println!("Skipping empty square {:?}", sight);
                         }
 
                         Square::Filled(piece) => {
                             if piece.color != color {
-                                println!("Checking for queen check");
+                                // println!("Checking for queen check");
                                 if piece.piece_person == PiecePerson::Queen {
-                                    println!("Check found: {:?}", PiecePerson::Queen);
+                                    // println!("Check found: {:?}", PiecePerson::Queen);
                                     return true;
                                 }
 
                                 for piece_person in piece_persons {
                                     if piece.piece_person == *piece_person {
-                                        println!("Check found: {:?}", *piece_person);
+                                        // println!("Check found: {:?}", *piece_person);
                                         return true;
                                     }
                                 }
@@ -622,7 +627,7 @@ impl Board {
                     if piece.color != color {
                         for piece_person in piece_persons {
                             if piece.piece_person == *piece_person {
-                                println!("Check found: {:?}", *piece_person);
+                                // println!("Check found: {:?}", *piece_person);
                                 return true;
                             }
                         }
@@ -642,7 +647,7 @@ impl Board {
             if let Square::Filled(piece) = self.get_square(&(king_location + offset)) {
                 if let PiecePerson::Pawn { .. } = piece.piece_person {
                     if piece.color != color {
-                        println!("Check found: {:?}", piece.piece_person);
+                        // println!("Check found: {:?}", piece.piece_person);
                         return true;
                     }
                 }
@@ -653,7 +658,6 @@ impl Board {
     }
 
     pub fn apply_move(&mut self, instruction: &Move) {
-        // todo: make apply_move not return the vector of change pieces now
         let pieces_to_update = match instruction {
             Move::Regular {
                 initial_position,
@@ -663,12 +667,12 @@ impl Board {
                 let replacement_piece: Piece =
                     match self.squares[initial_position.x as usize][initial_position.y as usize] {
                         Square::Filled(Piece {
-                                           color,
-                                           piece_person:
-                                           PiecePerson::Pawn {
-                                               first_move: Option::None,
-                                           },
-                                       }) => Piece {
+                            color,
+                            piece_person:
+                                PiecePerson::Pawn {
+                                    first_move: Option::None,
+                                },
+                        }) => Piece {
                             color,
                             piece_person: PiecePerson::Pawn {
                                 first_move: Some(self.move_number),
@@ -676,17 +680,17 @@ impl Board {
                         },
 
                         Square::Filled(Piece {
-                                           color,
-                                           piece_person: PiecePerson::King { moved: false },
-                                       }) => Piece {
+                            color,
+                            piece_person: PiecePerson::King { moved: false },
+                        }) => Piece {
                             color,
                             piece_person: PiecePerson::King { moved: true },
                         },
 
                         Square::Filled(Piece {
-                                           color,
-                                           piece_person: PiecePerson::Rook { moved: false },
-                                       }) => Piece {
+                            color,
+                            piece_person: PiecePerson::Rook { moved: false },
+                        }) => Piece {
                             color,
                             piece_person: PiecePerson::Rook { moved: true },
                         },
@@ -734,9 +738,9 @@ impl Board {
                 let new_king_piece =
                     match self.squares[kings_position.x as usize][kings_position.y as usize] {
                         Square::Filled(Piece {
-                                           color,
-                                           piece_person: PiecePerson::King { moved: false },
-                                       }) => Piece {
+                            color,
+                            piece_person: PiecePerson::King { moved: false },
+                        }) => Piece {
                             color,
                             piece_person: PiecePerson::King { moved: true },
                         },
@@ -763,9 +767,9 @@ impl Board {
                             [rooks_position.y as usize]
                         {
                             Square::Filled(Piece {
-                                               color,
-                                               piece_person: PiecePerson::Rook { moved: false },
-                                           }) => Piece {
+                                color,
+                                piece_person: PiecePerson::Rook { moved: false },
+                            }) => Piece {
                                 color,
                                 piece_person: PiecePerson::Rook { moved: true },
                             },
@@ -796,9 +800,9 @@ impl Board {
                             [rooks_position.y as usize]
                         {
                             Square::Filled(Piece {
-                                               color,
-                                               piece_person: PiecePerson::Rook { moved: false },
-                                           }) => Piece {
+                                color,
+                                piece_person: PiecePerson::Rook { moved: false },
+                            }) => Piece {
                                 color,
                                 piece_person: PiecePerson::Rook { moved: true },
                             },
@@ -826,7 +830,6 @@ impl Board {
 
                 self.squares[final_position.x as usize][initial_position.y as usize] =
                     Square::Empty;
-
             }
         };
 
@@ -880,6 +883,107 @@ impl Board {
         game_state
     }
 
+    pub fn generate_transposition(&self) -> [[[bool; 10]; 8]; 8] {
+        let mut output: [[[bool; 10]; 8]; 8] = [[[false; 10]; 8]; 8];
+
+        // if the main player is black, reverse both enumerations
+        let black_bottom = self.player_1_color == PieceColor::Black;
+
+        let iterator = if !black_bottom {
+            Either::Left(self.squares.iter().enumerate())
+        } else {
+            Either::Right(self.squares.iter().rev().enumerate())
+        };
+
+        for (idx, row) in iterator {
+
+            let iterator2 = if !black_bottom {
+                Either::Left(row.iter().enumerate())
+            } else {
+                Either::Right(row.iter().rev().enumerate())
+            };
+
+            // so white is always at the bottom
+
+            for (idy, square) in iterator2 {
+                match square {
+                    Square::Filled(piece) => {
+                        let filled = true;
+                        let color = piece.color == PieceColor::White;
+                        let mut moved_one_hot = false;
+                        let mut en_passant = false;
+
+                        let piece_person_one_hot: usize = match piece.piece_person {
+                            PiecePerson::Pawn { first_move } => {
+
+                                if first_move == Some(self.move_number - 1) {
+                                    // if it is on the fourth rank of its color and there is a pawn of opposite color next to it, enable en passant
+                                    let real_coordinates = if !black_bottom { Coordinate { x: idx as isize, y: idy as isize } } else { Coordinate { x: (BOARD_TILE_DIM - 1) - (idx as isize), y: (BOARD_TILE_DIM - 1) - (idy as isize) } };
+
+                                    let row_of_passant = if piece.color == self.player_1_color { // if we are on the bottom
+                                        BOARD_TILE_DIM - 4
+                                    } else {
+                                        3
+                                    };
+                                    
+                                    println!("Row of Passant {:?}", row_of_passant);
+                                    println!("Real coordinates of pawn {:?}", real_coordinates);
+
+                                    if real_coordinates.y == row_of_passant {
+
+                                        let opposite_color = piece.color.opposite();
+
+                                        for offset in [(1, 0), (-1, 0)] {
+
+                                            println!("Left/Right square {:?}", self.get_square(&(real_coordinates + offset)));
+                                            
+                                            if let Square::Filled(Piece { color, piece_person: PiecePerson::Pawn { first_move } }) = self.get_square(&(real_coordinates + offset)) {
+                                                if color == opposite_color {
+                                                    println!("En Passant set as true"); 
+                                                    en_passant = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                0
+                            }
+                            PiecePerson::Rook { moved } => {
+                                moved_one_hot = moved;
+                                1
+                            }
+                            PiecePerson::Knight => 2,
+                            PiecePerson::Bishop => 3,
+                            PiecePerson::Queen => 4,
+                            PiecePerson::King { moved } => {
+                                moved_one_hot = moved;
+                                5
+                            }
+                        };
+
+                        output[idx][idy] = [
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            filled,
+                            color,
+                            !moved_one_hot, // invert moved one hot so that kings only have an extra true value when they are not moved
+                            en_passant,
+                        ];
+                        output[idx][idy][piece_person_one_hot] = true;
+                    }
+                    Square::Empty | Square::Boundary => {}
+                }
+            }
+        }
+        output
+    }
+
     fn new_row(right_piece: Piece, left_piece: Piece) -> [Square; BOARD_TILE_DIM as usize] {
         [
             Square::Filled(right_piece),
@@ -904,8 +1008,8 @@ impl Board {
             PiecePerson::Knight,
             PiecePerson::Bishop,
         ]
-            .iter()
-            .enumerate()
+        .iter()
+        .enumerate()
         {
             squares[idx] = Board::new_row(
                 Piece::new(player_2_color, *person),
@@ -927,9 +1031,9 @@ impl Board {
             PiecePerson::Knight,
             PiecePerson::Bishop,
         ]
-            .iter()
-            .rev()
-            .enumerate()
+        .iter()
+        .rev()
+        .enumerate()
         {
             squares[idx + 5] = Board::new_row(
                 Piece::new(player_2_color, *person),

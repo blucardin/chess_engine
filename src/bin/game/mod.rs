@@ -2,7 +2,7 @@ use bevy::input::common_conditions::*;
 use bevy::prelude::*;
 
 use chess::*;
-use chess::Move; 
+use chess::Move;
 
 pub struct Game;
 
@@ -19,7 +19,7 @@ impl Plugin for Game {
             (
                 mouse_button_input
                 .run_if(input_just_pressed(MouseButton::Left))
-                .run_if(in_state(ComputerTurnState::Player)), 
+                .run_if(in_state(ComputerTurnState::Player)),
             computer_move
                 .run_if(in_state(ComputerTurnState::Computer))
             )
@@ -271,9 +271,9 @@ fn mouse_button_input(
                 board.apply_move(
                     &possible_move.piece_move,
                 );
-                
-                moved = true; 
-                break; 
+
+                moved = true;
+                break;
             }
         }
 
@@ -309,7 +309,7 @@ fn mouse_button_input(
                             ..default()
                         },
                     ));
-                    return; 
+                    return;
                 }
                 GameState::Draw => {
                     commands.spawn((
@@ -324,10 +324,10 @@ fn mouse_button_input(
                     return;
                 }
             }
-            
+
 
             if game_settings.computer_player {
-                next_computer_turn_state.set(ComputerTurnState::Computer);                
+                next_computer_turn_state.set(ComputerTurnState::Computer);
             }
 
             return;
@@ -463,6 +463,6 @@ fn computer_move(
             return;
         }
     }
-    
+
     next_computer_turn_state.set(ComputerTurnState::Player);
 }
