@@ -1,12 +1,13 @@
 use bevy::prelude::{Color, Resource};
 use rand::seq::IndexedRandom;
 use std::cmp::PartialEq;
-use std::ops;
+use std::{fmt, ops};
 
 extern crate either;
 
 use either::Either;
-use std::iter;
+
+use pgn_reader::{CastlingSide, File, Rank, Role, San, SanPlus};
 // 0.9.0
 
 pub const BOARD_TILE_DIM: isize = 8;
@@ -82,6 +83,28 @@ impl PiecePerson {
     fn new_pawn() -> Self {
         PiecePerson::Pawn { first_move: None }
     }
+    
+    fn compare_with_role(&self, role: Role) -> bool {
+        match role {
+            Role::Pawn => {matches!(*self, PiecePerson::Pawn {..})},
+            Role::Knight => {*self == PiecePerson::Knight}
+            Role::Bishop => {*self == PiecePerson::Bishop}
+            Role::Rook => {matches!(*self, PiecePerson::Rook{..})},
+            Role::Queen => {*self == PiecePerson::Queen}
+            Role::King => {matches!(*self, PiecePerson::King{..})}
+        }
+    }
+    
+    fn from_role(role: Role) -> Self {
+        match role {
+            Role::Pawn => {panic!("Cannot convert role pawn to PiecePerson because of first move ambiguity")},
+            Role::Knight => {PiecePerson::Knight}
+            Role::Bishop => {PiecePerson::Bishop}
+            Role::Rook => {PiecePerson::Rook{moved : true}},
+            Role::Queen => {PiecePerson::Queen}
+            Role::King => {PiecePerson::King{moved : true}}
+        }
+    }
 
     pub fn file_string(&self) -> String {
         String::from(match self {
@@ -119,6 +142,22 @@ impl Piece {
         let name_file_string = self.piece_person.file_string();
         let color_file_string = self.color.file_string();
         format_piece_filename(color_file_string, name_file_string)
+    }
+    
+    fn get_string(&self) -> &str {
+        let index = match self.piece_person {
+            PiecePerson::Pawn { .. } => {0}
+            PiecePerson::Rook { .. } => {1}
+            PiecePerson::Knight => {2}
+            PiecePerson::Bishop => {3}
+            PiecePerson::Queen => {4}
+            PiecePerson::King { .. } => {5}
+        };
+        
+        match self.color {
+            PieceColor::Black => {["♙", "♖", "♘", "♗", "♕", "♔"][index]}
+            PieceColor::White => {["♟", "♜", "♞", "♝", "♛", "♚"][index]}
+        }
     }
 }
 
@@ -199,6 +238,10 @@ pub const POSSIBLE_PAWN_PROMOTES: [PiecePerson; 4] = [
     PiecePerson::Bishop,
     PiecePerson::Knight,
 ];
+
+fn rank_to_y(rank: Rank) -> usize {
+    (BOARD_TILE_DIM as usize - 1) - rank as usize
+}
 
 // custom implementation for unusual values
 impl Board {
@@ -658,7 +701,7 @@ impl Board {
     }
 
     pub fn apply_move(&mut self, instruction: &Move) {
-        let pieces_to_update = match instruction {
+        match instruction {
             Move::Regular {
                 initial_position,
                 final_position,
@@ -835,8 +878,104 @@ impl Board {
 
         self.turn = self.turn.opposite();
         self.move_number += 1;
+    }
 
-        pieces_to_update
+    pub fn apply_san(&mut self, san_plus_move: SanPlus) {
+        
+        let san = san_plus_move.san; 
+        
+        match san {
+            San::Normal { role, file, rank, capture, to, promotion } => {
+                
+                let mut files = Vec::from_iter(0..BOARD_TILE_DIM as usize);
+                let mut ranks = Vec::from_iter(0..BOARD_TILE_DIM as usize);
+                
+                if let Some(file) = file { 
+                    files = vec![file as usize];
+                }
+
+                if let Some(rank) = rank {
+                    ranks = vec![rank_to_y(rank)];
+                }
+                
+                // if file_known && rank_known { 
+                //     // todo: just apply the move that this defines
+                // }
+
+                let mut moves: Vec<Move> = vec![];
+                
+                for idx in files {
+                    for idy in &ranks {
+                        if let Square::Filled(Piece{ color, piece_person}) = self.squares[idx][*idy] {
+                            if piece_person.compare_with_role(role) && color == self.turn { 
+                                moves.extend(self.get_possible_moves(Coordinate{x: idx as isize, y: *idy as isize }).unwrap());
+                            }
+                        }
+                    }
+                }
+                
+                let en_passant_move = capture && self.squares[to.file() as usize][rank_to_y(to.rank())] == Square::Empty;
+                // only if capture is true, but there is no piece to take currently on the "to" square
+
+                let mut move_to_apply = None; 
+                    
+                if let Some(role) = promotion {
+                    for piece_move in &moves {
+                        if let Move::Promote { initial_position, final_position, move_type, piece_person } = piece_move {
+                            if final_position.x == to.file() as isize && final_position.y == rank_to_y(to.rank()) as isize && (*move_type == MoveType::Take) == capture && piece_person.compare_with_role(role) {
+                                move_to_apply = Some(piece_move);
+                                break; 
+                            }
+                        }
+                    }
+                } else if en_passant_move {
+                    for piece_move in &moves {
+                        if let Move::EnPassant { initial_position, final_position} = piece_move {
+                            if final_position.x == to.file() as isize && final_position.y == rank_to_y(to.rank()) as isize {
+                                move_to_apply = Some(piece_move);
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    for piece_move in &moves {
+                        if let Move::Regular { initial_position, final_position, move_type} = piece_move {
+                            if final_position.x == to.file() as isize && final_position.y == rank_to_y(to.rank()) as isize && (*move_type == MoveType::Take) == capture {
+                                move_to_apply = Some(piece_move);
+                                break;
+                            }
+                        }
+                    }
+                };
+                
+                if move_to_apply.is_none() {
+                    panic!("No valid moves found. San: {:#?} Moves Evaluated: {:#?}", san, moves);
+                }          
+                    
+                       
+                // Possible Speedup
+                // if let Some(role) = promotion { 
+                //     for piece_move in moves {
+                //         if let Move::Promote { initial_position, final_position, move_type, piece_person } = piece_move {
+                //              // todo: just apply the move that this defines
+                //         }
+                //     }
+                // }
+                
+                self.apply_move(move_to_apply.unwrap()); 
+                
+            }
+            San::Castle(castling_side) => {
+                self.apply_move(&Move::Castle {side: match castling_side {
+                    CastlingSide::KingSide => {Side::KingsSide}
+                    CastlingSide::QueenSide => {Side::QueenSide}
+                }})
+            }
+            San::Put { .. } => {
+                panic!("The san reader returned a san with a put.")
+            }
+            San::Null => {}
+        }
     }
 
     fn replace_piece(
@@ -1047,5 +1186,27 @@ impl Board {
             squares,
             move_number: 0,
         }
+    }
+}
+
+impl fmt::Display for Board {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        
+        let mut output = [[" "; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
+        
+        for (idx, row) in self.squares.iter().enumerate() {
+            for (idy, square) in row.iter().enumerate() {
+                if let Square::Filled(piece) = square {
+                    output[idy][idx] = piece.get_string();
+                }
+            }
+        }
+
+        for row in output {
+            writeln!(f, "{:?}", row)?;
+        }
+        Ok(())
+        
+        // write!(f, "{:?}", output)
     }
 }
