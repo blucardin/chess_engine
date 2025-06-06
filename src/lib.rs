@@ -2,6 +2,7 @@ use bevy::prelude::{Color, Resource};
 use rand::seq::IndexedRandom;
 use std::cmp::PartialEq;
 use std::{fmt, ops};
+use bincode::{Decode, Encode};
 
 extern crate either;
 
@@ -69,7 +70,7 @@ impl PieceColor {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Encode, Decode, Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PiecePerson {
     Pawn { first_move: Option<i32> },
     Rook { moved: bool },
@@ -116,6 +117,21 @@ impl PiecePerson {
             PiecePerson::King { .. } => "king",
         })
     }
+
+    fn get_index(&self) -> usize {
+        match self {
+            PiecePerson::Pawn { .. } => {0}
+            PiecePerson::Rook { .. } => {1}
+            PiecePerson::Knight => {2}
+            PiecePerson::Bishop => {3}
+            PiecePerson::Queen => {4}
+            PiecePerson::King { .. } => {5}
+        }
+    }
+
+    fn get_uci_name(&self) -> String {
+        String::from(["p", "r", "n", "b", "q", "k"][self.get_index()])
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -145,14 +161,7 @@ impl Piece {
     }
     
     fn get_string(&self) -> &str {
-        let index = match self.piece_person {
-            PiecePerson::Pawn { .. } => {0}
-            PiecePerson::Rook { .. } => {1}
-            PiecePerson::Knight => {2}
-            PiecePerson::Bishop => {3}
-            PiecePerson::Queen => {4}
-            PiecePerson::King { .. } => {5}
-        };
+        let index = self.piece_person.get_index();
         
         match self.color {
             PieceColor::Black => {["♙", "♖", "♘", "♗", "♕", "♔"][index]}
@@ -169,10 +178,24 @@ pub struct Board {
     move_number: i32,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Coordinate {
     pub x: isize,
     pub y: isize,
+}
+
+const FILES: [&'static str; 8] = ["a", "b", "c", "d", "e", "f", "g", "h"];
+
+impl Coordinate {
+    fn to_uci_coordinate(&self) -> String {
+        let x_string = (BOARD_TILE_DIM - self.x).to_string();
+        let y_string = FILES[self.y as usize].to_string();
+        format!("{}{}", x_string, y_string)
+    }
+    
+    fn to_text(&self) -> String {
+        format!("{}{}", self.x, self.y)
+    }
 }
 
 impl ops::Add<(isize, isize)> for Coordinate {
@@ -185,13 +208,13 @@ impl ops::Add<(isize, isize)> for Coordinate {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub enum Side {
     QueenSide,
     KingsSide,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub enum Move {
     Regular {
         initial_position: Coordinate,
@@ -213,6 +236,63 @@ pub enum Move {
     },
 }
 
+impl Move {
+    // fn to_byte(&self) -> u16 {
+    //     // let output = [false ; 8];
+    //     let out = 0u16;
+    //
+    //     match self {
+    //         Move::Regular { .. } => {}
+    //         Move::Promote { .. } => {}
+    //         Move::Castle { .. } => {}
+    //         Move::EnPassant { .. } => {}
+    //     }
+    //
+    //     //
+    //     // let out = output.iter().fold(0u16, |v, b| (v << 1) | (*b as u16));
+    //     //
+    //     // println!("{}", out);
+    //
+    //     out
+    // }
+
+    pub fn move_to_text_cheat(&self) -> String {
+        // untested
+        // REMEMBER, supposed to be called before we apply the move
+        let from_to = match self {
+            Move::Regular {initial_position, final_position, ..} |
+            Move::Promote {initial_position, final_position, ..} |
+            Move::EnPassant {initial_position, final_position, ..} => {
+                format!("{}{}", initial_position.to_text(), final_position.to_text())
+            },
+            Move::Castle { side } => {
+                return match side {
+                    Side::QueenSide => { String::from("cq") }
+                    Side::KingsSide => { String::from("ck") }
+                }
+            }
+        };
+
+        let capture = match self {
+            Move::Regular { move_type, .. } |
+            Move::Promote { move_type, .. }=> {*move_type == MoveType::Take},
+            Move::EnPassant { .. } => {true}
+            Move::Castle { .. } => {panic!("Castles should be returned already")}
+        };
+
+        let capture_string = if capture { "x" } else { "" };
+        
+        let prefix = match self {
+            Move::Regular { .. } => {String::from("r")}
+            Move::Promote { piece_person, .. } => {format!("p{}", piece_person.get_uci_name())}
+            Move::Castle { .. } => {panic!("Castles should be returned already")}
+            Move::EnPassant { .. } => {String::from("e")}
+        };
+
+        format!("{prefix}{from_to}{capture_string}")
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Square {
     Filled(Piece),
@@ -220,7 +300,7 @@ pub enum Square {
     Boundary,
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Encode, Decode, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum MoveType {
     Jump,
     Take,
@@ -880,7 +960,7 @@ impl Board {
         self.move_number += 1;
     }
 
-    pub fn apply_san(&mut self, san_plus_move: SanPlus) {
+    pub fn move_from_san(&mut self, san_plus_move: SanPlus) -> Move {
         
         let san = san_plus_move.san; 
         
@@ -914,9 +994,6 @@ impl Board {
                     }
                 }
                 
-                let en_passant_move = capture && self.squares[to.file() as usize][rank_to_y(to.rank())] == Square::Empty;
-                // only if capture is true, but there is no piece to take currently on the "to" square
-
                 let mut move_to_apply = None; 
                     
                 if let Some(role) = promotion {
@@ -928,7 +1005,8 @@ impl Board {
                             }
                         }
                     }
-                } else if en_passant_move {
+                } else if capture && self.squares[to.file() as usize][rank_to_y(to.rank())] == Square::Empty {
+                    // only if capture is true, but there is no piece to take currently on the "to" square, en passant
                     for piece_move in &moves {
                         if let Move::EnPassant { initial_position, final_position} = piece_move {
                             if final_position.x == to.file() as isize && final_position.y == rank_to_y(to.rank()) as isize {
@@ -948,11 +1026,14 @@ impl Board {
                     }
                 };
                 
-                if move_to_apply.is_none() {
-                    panic!("No valid moves found. San: {:#?} Moves Evaluated: {:#?}", san, moves);
-                }          
-                    
-                       
+                match move_to_apply {
+                    Some(piece_move) => {
+                        self.apply_move(piece_move); 
+                        piece_move.clone()
+                    }
+                    None => {panic!("No valid moves found. San: {:#?} Moves Evaluated: {:#?}", san, moves) }
+                }
+                
                 // Possible Speedup
                 // if let Some(role) = promotion { 
                 //     for piece_move in moves {
@@ -962,22 +1043,54 @@ impl Board {
                 //     }
                 // }
                 
-                self.apply_move(move_to_apply.unwrap()); 
-                
             }
             San::Castle(castling_side) => {
-                self.apply_move(&Move::Castle {side: match castling_side {
+                let piece_move = Move::Castle {side: match castling_side {
                     CastlingSide::KingSide => {Side::KingsSide}
                     CastlingSide::QueenSide => {Side::QueenSide}
-                }})
+                }};
+                self.apply_move(&piece_move);
+                piece_move.clone()
             }
             San::Put { .. } => {
                 panic!("The san reader returned a san with a put.")
             }
-            San::Null => {}
+            San::Null => {
+                panic!("The san reader returned a san with a null.")
+            }
         }
     }
 
+    fn move_to_uci(&self, piece_move: Move) -> String {
+        // untested
+        // REMEMBER, supposed to be called before we apply the move
+        let (initial_position, final_position) = match piece_move {
+            Move::Regular {initial_position, final_position, ..} |
+            Move::Promote {initial_position, final_position, ..} |
+            Move::EnPassant {initial_position, final_position, ..} => {
+                (initial_position.to_uci_coordinate(), final_position.to_uci_coordinate())
+            },
+            Move::Castle { side } => {
+                let row = if self.turn == self.player_1_color {"1"} else {"8"}; 
+                
+                return match side {
+                    Side::QueenSide => {format!("e{row}c{row}")}
+                    Side::KingsSide => {format!("e{row}g{row}")}
+                }
+            }
+        };
+        
+        let capture = match piece_move {
+            Move::Regular { move_type, .. } |
+            Move::Promote { move_type, .. }=> {move_type == MoveType::Take},
+            Move::EnPassant { .. } => {true}
+            Move::Castle { .. } => {panic!("Castles should be returned already")}
+        };
+        
+        let capture_string = if capture { "x" } else { "" };
+        
+        format!("{initial_position}{capture_string}{final_position}")
+    }
     fn replace_piece(
         &mut self,
         initial_position: &Coordinate,

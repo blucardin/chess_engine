@@ -1,28 +1,54 @@
 use std::fs::File;
-use chess::{Board, PieceColor};
-use pgn_reader::{BufferedReader, SanPlus, Skip, Visitor};
+use chess::{Board, Move, PieceColor};
+use pgn_reader::{BufferedReader, Outcome, SanPlus, Skip, Visitor};
 use std::io;
-use bevy::tasks::futures_lite::StreamExt;
+use std::io::ErrorKind;
+use serde::{Deserialize, Serialize};
+use serde_rusqlite::*;
+use bincode::{config, Decode, Encode};
+use bincode::config::Configuration;
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug)]
+struct MovesAndLabel {
+    id: i64,
+    white_winner: bool,
+    move_list: Vec<u8>,
+}
 
 struct Looker {
-    moves: usize,
+    moves: i64,
     normal_termination: bool,
     white_winner: Option<bool>,
     skip: bool, 
     board: Board,
-    games: i32, 
+    games: i32,
+    move_list: Vec<Move>,
+    connection: rusqlite::Connection,
+    config: Configuration, 
 }
 
 impl Looker {
-    fn new() -> Looker {
-        Looker {
+
+    fn new() -> Result<Looker> {
+
+        let path = "./training_data/moves_database.db3";
+        let connection = rusqlite::Connection::open(path)?;
+
+        if !connection.table_exists(None, "games")? {
+            connection.execute("CREATE TABLE games (id INT, white_winner BOOL, move_list BLOB)", [])?;
+        }
+
+        Ok(Looker {
             moves: 0,
             normal_termination: false,
             white_winner: None,
             board: Board::new(PieceColor::White),
             skip: false,
-            games: 0, 
-        }
+            games: 0,
+            move_list: Vec::with_capacity(265), // Average number of moves was 65.6802940515, max was 256
+            connection: connection,
+            config: config::standard(), 
+        })
     }
 }
 
@@ -34,6 +60,7 @@ impl Visitor for Looker {
         self.white_winner = None;
         self.board = Board::new(PieceColor::White);
         self.skip = false;
+        self.move_list.clear();
     }
 
     fn header(&mut self, key: &[u8], value: pgn_reader::RawHeader<'_>) {
@@ -66,19 +93,31 @@ impl Visitor for Looker {
     }
 
     fn san(&mut self, san_plus: SanPlus) {
-        self.board.apply_san(san_plus);
+        let piece_move = self.board.move_from_san(san_plus);
+        self.move_list.push(piece_move);
         // println!("{}", self.board);
-        // todo: logic for saving the move to the sql database
-        self.moves += 1; 
+        self.moves += 1;
     }
 
     fn begin_variation(&mut self) -> Skip {
         Skip(true) // stay in the mainline
     }
 
+    fn outcome(&mut self, _outcome: Option<Outcome>) {
+        // println!("{}", self.move_list.join(" "));
+        println!("moves parsed: {}", self.moves);
+        // todo: logic for saving the move and white_winner to the sql database
+        self.connection.execute("INSERT INTO games (id, white_winner, move_list) VALUES (:id, :white_winner, :move_list)", to_params_named(&MovesAndLabel{
+            id: self.moves,
+            white_winner: self.white_winner.unwrap(),
+            move_list: bincode::encode_to_vec(&self.move_list, self.config).unwrap()
+        }).unwrap().to_slice().as_slice()).unwrap();
+    }
+
     fn end_game(&mut self) -> Self::Result {
-        println!("{}, {}", self.games, self.moves);
-        self.moves
+        // println!("{}, {}", self.games, self.moves);
+        // self.moves
+        self.moves as usize
     }
 }
 
@@ -107,7 +146,7 @@ fn main() -> io::Result<()> {
     let file = File::open("training_data/lichess_db_standard_rated_2013-01.pgn")?;
     let mut reader = BufferedReader::new(file);
 
-    let mut counter = Looker::new();
+    let mut counter = Looker::new().map_err(|err | io::Error::new(ErrorKind::ConnectionRefused, "Database error"))?;
     
     let mut total_moves = 0; 
     while let Ok(Some(moves)) = reader.read_game(&mut counter) {
