@@ -1,8 +1,8 @@
 use bevy::prelude::{Color, Resource};
+use bincode::{Decode, Encode};
 use rand::seq::IndexedRandom;
 use std::cmp::PartialEq;
 use std::{fmt, ops};
-use bincode::{Decode, Encode};
 
 extern crate either;
 
@@ -84,26 +84,34 @@ impl PiecePerson {
     fn new_pawn() -> Self {
         PiecePerson::Pawn { first_move: None }
     }
-    
+
     fn compare_with_role(&self, role: Role) -> bool {
         match role {
-            Role::Pawn => {matches!(*self, PiecePerson::Pawn {..})},
-            Role::Knight => {*self == PiecePerson::Knight}
-            Role::Bishop => {*self == PiecePerson::Bishop}
-            Role::Rook => {matches!(*self, PiecePerson::Rook{..})},
-            Role::Queen => {*self == PiecePerson::Queen}
-            Role::King => {matches!(*self, PiecePerson::King{..})}
+            Role::Pawn => {
+                matches!(*self, PiecePerson::Pawn { .. })
+            }
+            Role::Knight => *self == PiecePerson::Knight,
+            Role::Bishop => *self == PiecePerson::Bishop,
+            Role::Rook => {
+                matches!(*self, PiecePerson::Rook { .. })
+            }
+            Role::Queen => *self == PiecePerson::Queen,
+            Role::King => {
+                matches!(*self, PiecePerson::King { .. })
+            }
         }
     }
-    
+
     fn from_role(role: Role) -> Self {
         match role {
-            Role::Pawn => {panic!("Cannot convert role pawn to PiecePerson because of first move ambiguity")},
-            Role::Knight => {PiecePerson::Knight}
-            Role::Bishop => {PiecePerson::Bishop}
-            Role::Rook => {PiecePerson::Rook{moved : true}},
-            Role::Queen => {PiecePerson::Queen}
-            Role::King => {PiecePerson::King{moved : true}}
+            Role::Pawn => {
+                panic!("Cannot convert role pawn to PiecePerson because of first move ambiguity")
+            }
+            Role::Knight => PiecePerson::Knight,
+            Role::Bishop => PiecePerson::Bishop,
+            Role::Rook => PiecePerson::Rook { moved: true },
+            Role::Queen => PiecePerson::Queen,
+            Role::King => PiecePerson::King { moved: true },
         }
     }
 
@@ -120,12 +128,12 @@ impl PiecePerson {
 
     fn get_index(&self) -> usize {
         match self {
-            PiecePerson::Pawn { .. } => {0}
-            PiecePerson::Rook { .. } => {1}
-            PiecePerson::Knight => {2}
-            PiecePerson::Bishop => {3}
-            PiecePerson::Queen => {4}
-            PiecePerson::King { .. } => {5}
+            PiecePerson::Pawn { .. } => 0,
+            PiecePerson::Rook { .. } => 1,
+            PiecePerson::Knight => 2,
+            PiecePerson::Bishop => 3,
+            PiecePerson::Queen => 4,
+            PiecePerson::King { .. } => 5,
         }
     }
 
@@ -159,13 +167,13 @@ impl Piece {
         let color_file_string = self.color.file_string();
         format_piece_filename(color_file_string, name_file_string)
     }
-    
+
     fn get_string(&self) -> &str {
         let index = self.piece_person.get_index();
-        
+
         match self.color {
-            PieceColor::Black => {["♙", "♖", "♘", "♗", "♕", "♔"][index]}
-            PieceColor::White => {["♟", "♜", "♞", "♝", "♛", "♚"][index]}
+            PieceColor::Black => ["♙", "♖", "♘", "♗", "♕", "♔"][index],
+            PieceColor::White => ["♟", "♜", "♞", "♝", "♛", "♚"][index],
         }
     }
 }
@@ -192,7 +200,7 @@ impl Coordinate {
         let y_string = FILES[self.y as usize].to_string();
         format!("{}{}", x_string, y_string)
     }
-    
+
     fn to_text(&self) -> String {
         format!("{}{}", self.x, self.y)
     }
@@ -260,33 +268,52 @@ impl Move {
         // untested
         // REMEMBER, supposed to be called before we apply the move
         let from_to = match self {
-            Move::Regular {initial_position, final_position, ..} |
-            Move::Promote {initial_position, final_position, ..} |
-            Move::EnPassant {initial_position, final_position, ..} => {
+            Move::Regular {
+                initial_position,
+                final_position,
+                ..
+            }
+            | Move::Promote {
+                initial_position,
+                final_position,
+                ..
+            }
+            | Move::EnPassant {
+                initial_position,
+                final_position,
+                ..
+            } => {
                 format!("{}{}", initial_position.to_text(), final_position.to_text())
-            },
+            }
             Move::Castle { side } => {
                 return match side {
-                    Side::QueenSide => { String::from("cq") }
-                    Side::KingsSide => { String::from("ck") }
-                }
+                    Side::QueenSide => String::from("cq"),
+                    Side::KingsSide => String::from("ck"),
+                };
             }
         };
 
         let capture = match self {
-            Move::Regular { move_type, .. } |
-            Move::Promote { move_type, .. }=> {*move_type == MoveType::Take},
-            Move::EnPassant { .. } => {true}
-            Move::Castle { .. } => {panic!("Castles should be returned already")}
+            Move::Regular { move_type, .. } | Move::Promote { move_type, .. } => {
+                *move_type == MoveType::Take
+            }
+            Move::EnPassant { .. } => true,
+            Move::Castle { .. } => {
+                panic!("Castles should be returned already")
+            }
         };
 
         let capture_string = if capture { "x" } else { "" };
-        
+
         let prefix = match self {
-            Move::Regular { .. } => {String::from("r")}
-            Move::Promote { piece_person, .. } => {format!("p{}", piece_person.get_uci_name())}
-            Move::Castle { .. } => {panic!("Castles should be returned already")}
-            Move::EnPassant { .. } => {String::from("e")}
+            Move::Regular { .. } => String::from("r"),
+            Move::Promote { piece_person, .. } => {
+                format!("p{}", piece_person.get_uci_name())
+            }
+            Move::Castle { .. } => {
+                panic!("Castles should be returned already")
+            }
+            Move::EnPassant { .. } => String::from("e"),
         };
 
         format!("{prefix}{from_to}{capture_string}")
@@ -961,55 +988,88 @@ impl Board {
     }
 
     pub fn move_from_san(&mut self, san_plus_move: SanPlus) -> Move {
-        
-        let san = san_plus_move.san; 
-        
+        let san = san_plus_move.san;
+
         match san {
-            San::Normal { role, file, rank, capture, to, promotion } => {
-                
+            San::Normal {
+                role,
+                file,
+                rank,
+                capture,
+                to,
+                promotion,
+            } => {
                 let mut files = Vec::from_iter(0..BOARD_TILE_DIM as usize);
                 let mut ranks = Vec::from_iter(0..BOARD_TILE_DIM as usize);
-                
-                if let Some(file) = file { 
+
+                if let Some(file) = file {
                     files = vec![file as usize];
                 }
 
                 if let Some(rank) = rank {
                     ranks = vec![rank_to_y(rank)];
                 }
-                
-                // if file_known && rank_known { 
+
+                // if file_known && rank_known {
                 //     // todo: just apply the move that this defines
                 // }
 
                 let mut moves: Vec<Move> = vec![];
-                
+
                 for idx in files {
                     for idy in &ranks {
-                        if let Square::Filled(Piece{ color, piece_person}) = self.squares[idx][*idy] {
-                            if piece_person.compare_with_role(role) && color == self.turn { 
-                                moves.extend(self.get_possible_moves(Coordinate{x: idx as isize, y: *idy as isize }).unwrap());
+                        if let Square::Filled(Piece {
+                            color,
+                            piece_person,
+                        }) = self.squares[idx][*idy]
+                        {
+                            if piece_person.compare_with_role(role) && color == self.turn {
+                                moves.extend(
+                                    self.get_possible_moves(Coordinate {
+                                        x: idx as isize,
+                                        y: *idy as isize,
+                                    })
+                                    .unwrap(),
+                                );
                             }
                         }
                     }
                 }
-                
-                let mut move_to_apply = None; 
-                    
+
+                let mut move_to_apply = None;
+
                 if let Some(role) = promotion {
                     for piece_move in &moves {
-                        if let Move::Promote { initial_position, final_position, move_type, piece_person } = piece_move {
-                            if final_position.x == to.file() as isize && final_position.y == rank_to_y(to.rank()) as isize && (*move_type == MoveType::Take) == capture && piece_person.compare_with_role(role) {
+                        if let Move::Promote {
+                            initial_position,
+                            final_position,
+                            move_type,
+                            piece_person,
+                        } = piece_move
+                        {
+                            if final_position.x == to.file() as isize
+                                && final_position.y == rank_to_y(to.rank()) as isize
+                                && (*move_type == MoveType::Take) == capture
+                                && piece_person.compare_with_role(role)
+                            {
                                 move_to_apply = Some(piece_move);
-                                break; 
+                                break;
                             }
                         }
                     }
-                } else if capture && self.squares[to.file() as usize][rank_to_y(to.rank())] == Square::Empty {
+                } else if capture
+                    && self.squares[to.file() as usize][rank_to_y(to.rank())] == Square::Empty
+                {
                     // only if capture is true, but there is no piece to take currently on the "to" square, en passant
                     for piece_move in &moves {
-                        if let Move::EnPassant { initial_position, final_position} = piece_move {
-                            if final_position.x == to.file() as isize && final_position.y == rank_to_y(to.rank()) as isize {
+                        if let Move::EnPassant {
+                            initial_position,
+                            final_position,
+                        } = piece_move
+                        {
+                            if final_position.x == to.file() as isize
+                                && final_position.y == rank_to_y(to.rank()) as isize
+                            {
                                 move_to_apply = Some(piece_move);
                                 break;
                             }
@@ -1017,38 +1077,52 @@ impl Board {
                     }
                 } else {
                     for piece_move in &moves {
-                        if let Move::Regular { initial_position, final_position, move_type} = piece_move {
-                            if final_position.x == to.file() as isize && final_position.y == rank_to_y(to.rank()) as isize && (*move_type == MoveType::Take) == capture {
+                        if let Move::Regular {
+                            initial_position,
+                            final_position,
+                            move_type,
+                        } = piece_move
+                        {
+                            if final_position.x == to.file() as isize
+                                && final_position.y == rank_to_y(to.rank()) as isize
+                                && (*move_type == MoveType::Take) == capture
+                            {
                                 move_to_apply = Some(piece_move);
                                 break;
                             }
                         }
                     }
                 };
-                
+
                 match move_to_apply {
                     Some(piece_move) => {
-                        self.apply_move(piece_move); 
+                        self.apply_move(piece_move);
                         piece_move.clone()
                     }
-                    None => {panic!("No valid moves found. San: {:#?} Moves Evaluated: {:#?}", san, moves) }
+                    None => {
+                        panic!(
+                            "No valid moves found. San: {:#?} Moves Evaluated: {:#?}",
+                            san, moves
+                        )
+                    }
                 }
-                
+
                 // Possible Speedup
-                // if let Some(role) = promotion { 
+                // if let Some(role) = promotion {
                 //     for piece_move in moves {
                 //         if let Move::Promote { initial_position, final_position, move_type, piece_person } = piece_move {
                 //              // todo: just apply the move that this defines
                 //         }
                 //     }
                 // }
-                
             }
             San::Castle(castling_side) => {
-                let piece_move = Move::Castle {side: match castling_side {
-                    CastlingSide::KingSide => {Side::KingsSide}
-                    CastlingSide::QueenSide => {Side::QueenSide}
-                }};
+                let piece_move = Move::Castle {
+                    side: match castling_side {
+                        CastlingSide::KingSide => Side::KingsSide,
+                        CastlingSide::QueenSide => Side::QueenSide,
+                    },
+                };
                 self.apply_move(&piece_move);
                 piece_move.clone()
             }
@@ -1065,30 +1139,54 @@ impl Board {
         // untested
         // REMEMBER, supposed to be called before we apply the move
         let (initial_position, final_position) = match piece_move {
-            Move::Regular {initial_position, final_position, ..} |
-            Move::Promote {initial_position, final_position, ..} |
-            Move::EnPassant {initial_position, final_position, ..} => {
-                (initial_position.to_uci_coordinate(), final_position.to_uci_coordinate())
-            },
+            Move::Regular {
+                initial_position,
+                final_position,
+                ..
+            }
+            | Move::Promote {
+                initial_position,
+                final_position,
+                ..
+            }
+            | Move::EnPassant {
+                initial_position,
+                final_position,
+                ..
+            } => (
+                initial_position.to_uci_coordinate(),
+                final_position.to_uci_coordinate(),
+            ),
             Move::Castle { side } => {
-                let row = if self.turn == self.player_1_color {"1"} else {"8"}; 
-                
+                let row = if self.turn == self.player_1_color {
+                    "1"
+                } else {
+                    "8"
+                };
+
                 return match side {
-                    Side::QueenSide => {format!("e{row}c{row}")}
-                    Side::KingsSide => {format!("e{row}g{row}")}
-                }
+                    Side::QueenSide => {
+                        format!("e{row}c{row}")
+                    }
+                    Side::KingsSide => {
+                        format!("e{row}g{row}")
+                    }
+                };
             }
         };
-        
+
         let capture = match piece_move {
-            Move::Regular { move_type, .. } |
-            Move::Promote { move_type, .. }=> {move_type == MoveType::Take},
-            Move::EnPassant { .. } => {true}
-            Move::Castle { .. } => {panic!("Castles should be returned already")}
+            Move::Regular { move_type, .. } | Move::Promote { move_type, .. } => {
+                move_type == MoveType::Take
+            }
+            Move::EnPassant { .. } => true,
+            Move::Castle { .. } => {
+                panic!("Castles should be returned already")
+            }
         };
-        
+
         let capture_string = if capture { "x" } else { "" };
-        
+
         format!("{initial_position}{capture_string}{final_position}")
     }
     fn replace_piece(
@@ -1135,8 +1233,10 @@ impl Board {
         game_state
     }
 
-    pub fn generate_transposition(&self) -> [[[bool; 10]; 8]; 8] {
-        let mut output: [[[bool; 10]; 8]; 8] = [[[false; 10]; 8]; 8];
+    pub fn generate_transposition(
+        &self,
+    ) -> [[[bool; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize] {
+        let mut output = [[[false; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
 
         // if the main player is black, reverse both enumerations
         let black_bottom = self.player_1_color == PieceColor::Black;
@@ -1148,7 +1248,6 @@ impl Board {
         };
 
         for (idx, row) in iterator {
-
             let iterator2 = if !black_bottom {
                 Either::Left(row.iter().enumerate())
             } else {
@@ -1167,31 +1266,43 @@ impl Board {
 
                         let piece_person_one_hot: usize = match piece.piece_person {
                             PiecePerson::Pawn { first_move } => {
-
                                 if first_move == Some(self.move_number - 1) {
                                     // if it is on the fourth rank of its color and there is a pawn of opposite color next to it, enable en passant
-                                    let real_coordinates = if !black_bottom { Coordinate { x: idx as isize, y: idy as isize } } else { Coordinate { x: (BOARD_TILE_DIM - 1) - (idx as isize), y: (BOARD_TILE_DIM - 1) - (idy as isize) } };
+                                    let real_coordinates = if !black_bottom {
+                                        Coordinate {
+                                            x: idx as isize,
+                                            y: idy as isize,
+                                        }
+                                    } else {
+                                        Coordinate {
+                                            x: (BOARD_TILE_DIM - 1) - (idx as isize),
+                                            y: (BOARD_TILE_DIM - 1) - (idy as isize),
+                                        }
+                                    };
 
-                                    let row_of_passant = if piece.color == self.player_1_color { // if we are on the bottom
+                                    let row_of_passant = if piece.color == self.player_1_color {
+                                        // if we are on the bottom
                                         BOARD_TILE_DIM - 4
                                     } else {
                                         3
                                     };
-                                    
-                                    println!("Row of Passant {:?}", row_of_passant);
-                                    println!("Real coordinates of pawn {:?}", real_coordinates);
+
+                                    // println!("Row of Passant {:?}", row_of_passant);
+                                    // println!("Real coordinates of pawn {:?}", real_coordinates);
 
                                     if real_coordinates.y == row_of_passant {
-
                                         let opposite_color = piece.color.opposite();
 
                                         for offset in [(1, 0), (-1, 0)] {
+                                            // println!("Left/Right square {:?}", self.get_square(&(real_coordinates + offset)));
 
-                                            println!("Left/Right square {:?}", self.get_square(&(real_coordinates + offset)));
-                                            
-                                            if let Square::Filled(Piece { color, piece_person: PiecePerson::Pawn { first_move } }) = self.get_square(&(real_coordinates + offset)) {
+                                            if let Square::Filled(Piece {
+                                                color,
+                                                piece_person: PiecePerson::Pawn { first_move },
+                                            }) = self.get_square(&(real_coordinates + offset))
+                                            {
                                                 if color == opposite_color {
-                                                    println!("En Passant set as true"); 
+                                                    // println!("En Passant set as true");
                                                     en_passant = true;
                                                     break;
                                                 }
@@ -1304,9 +1415,8 @@ impl Board {
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        
         let mut output = [[" "; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
-        
+
         for (idx, row) in self.squares.iter().enumerate() {
             for (idy, square) in row.iter().enumerate() {
                 if let Square::Filled(piece) = square {
@@ -1319,7 +1429,7 @@ impl fmt::Display for Board {
             writeln!(f, "{:?}", row)?;
         }
         Ok(())
-        
+
         // write!(f, "{:?}", output)
     }
 }
