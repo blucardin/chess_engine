@@ -1,4 +1,5 @@
 mod model;
+mod board_data;
 
 use burn::backend::Wgpu;
 use model::ModelConfig;

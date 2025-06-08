@@ -1,22 +1,18 @@
-use bincode::config;
-use bincode::config::Configuration;
 use burn::data::dataset::transform::PartialDataset;
 use burn::data::dataset::{
-    Dataset, SqliteDatasetError,
-    transform::{Mapper},
+    Dataset, SqliteDatasetError
 };
-use chess::{BOARD_TILE_DIM, Board, Move, PieceColor};
-use r2d2::{Pool, PooledConnection};
+use chess::move_serialization::{MovesAndLabelRaw, CONFIG};
+use chess::{Board, Move, PieceColor, BOARD_TILE_DIM};
+use r2d2::Pool;
 use r2d2_sqlite::{
+    rusqlite::OpenFlags,
     SqliteConnectionManager,
-    rusqlite::{OpenFlags, OptionalExtension},
 };
 use serde::{Deserialize, Serialize};
 use serde_rusqlite::from_rows;
 use std::path::PathBuf;
 
-mod prepare_data;
-use prepare_data::MovesAndLabelRaw;
 
 /// MNIST item.
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -28,7 +24,6 @@ pub struct TranspositionItem {
     pub label: bool,
 }
 
-const CONFIG: Configuration = config::standard();
 // type MappedDataset =
 //     MapperDataset<SqliteDataset<MovesAndLabelRaw>, BytesToTransposition, MovesAndLabelRaw>;
 
@@ -147,10 +142,4 @@ impl SplitBoardDataset {
             dataset: data_split,
         }
     }
-}
-
-fn main() {
-    let dataset = BoardDataset::new("training_data/moves_database.db3");
-
-    println!("{:?}", dataset.get(24).unwrap());
 }

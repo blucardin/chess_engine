@@ -1,3 +1,5 @@
+pub mod move_serialization;
+
 use bevy::prelude::{Color, Resource};
 use bincode::{Decode, Encode};
 use rand::seq::IndexedRandom;
@@ -5,7 +7,6 @@ use std::cmp::PartialEq;
 use std::{fmt, ops};
 
 extern crate either;
-
 use either::Either;
 
 use pgn_reader::{CastlingSide, File, Rank, Role, San, SanPlus};

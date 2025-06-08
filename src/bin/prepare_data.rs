@@ -1,20 +1,11 @@
-use bincode::config::Configuration;
-use bincode::{Decode, Encode, config};
+use chess::move_serialization::{MovesAndLabelRaw, CONFIG};
 use chess::{Board, Move, PieceColor};
 use pgn_reader::{BufferedReader, Outcome, SanPlus, Skip, Visitor};
-use serde::{Deserialize, Serialize};
 use serde_rusqlite::*;
 use std::fs::File;
 use std::io;
 use std::io::ErrorKind;
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
-pub struct MovesAndLabelRaw {
-    pub id: i64,
-    pub white_winner: bool,
-    #[serde(with = "serde_bytes")]
-    pub move_list: Vec<u8>,
-}
 
 struct Looker {
     moves: i64,
@@ -27,7 +18,6 @@ struct Looker {
     connection: rusqlite::Connection,
 }
 
-const CONFIG: Configuration = config::standard();
 
 impl Looker {
     fn new() -> Result<Looker> {
