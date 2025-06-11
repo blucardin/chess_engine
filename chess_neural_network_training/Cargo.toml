@@ -1,0 +1,24 @@
+[package]
+name = "chess_neural_network_training"
+version = "0.1.0"
+edition = "2024"
+
+## Enable a small amount of optimization in the dev profile.
+#[profile.dev]
+#opt-level = 1
+#
+## Enable a large amount of optimization in the dev profile for dependencies.
+#[profile.dev.package."*"]
+#opt-level = 3
+
+
+[dependencies]
+pgn-reader = "0.26.0"
+serde_rusqlite = "0.38.0"
+serde = { version = "1.0", features = ["derive"] }
+bincode = "2.0.1"
+burn = { version = "~0.17", features = ["train", "wgpu", "vision"] }
+r2d2_sqlite = "0.27.0"
+r2d2 = "0.8.10"
+chess_engine = { path = "../chess_engine" }
+

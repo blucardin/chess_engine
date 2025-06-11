@@ -1,21 +1,14 @@
+use crate::data_batcher::TranspositionBatch;
+use burn::nn::loss::BinaryCrossEntropyLossConfig;
+use burn::nn::Sigmoid;
+use burn::tensor::backend::AutodiffBackend;
+use burn::train::{MultiLabelClassificationOutput, TrainOutput, TrainStep, ValidStep};
 use burn::{
     nn::{
-        conv::{Conv2d, Conv2dConfig},
-        pool::{AdaptiveAvgPool2d, AdaptiveAvgPool2dConfig},
-        Dropout, DropoutConfig, Linear, LinearConfig, Relu, HardSigmoidConfig
+        Dropout, DropoutConfig, Linear, LinearConfig, Relu
     },
     prelude::*,
 };
-use burn::data::dataloader::DataLoaderBuilder;
-use burn::nn::loss::{BinaryCrossEntropyLoss, BinaryCrossEntropyLossConfig, CrossEntropyLossConfig, MseLoss, Reduction};
-use burn::nn::Sigmoid;
-use burn::optim::AdamConfig;
-use burn::record::CompactRecorder;
-use burn::tensor::backend::AutodiffBackend;
-use burn::train::{ClassificationOutput, LearnerBuilder, MultiLabelClassificationOutput, RegressionOutput, TrainOutput, TrainStep, ValidStep};
-use burn::train::metric::{AccuracyMetric, LossMetric};
-use crate::data_batcher::{TranspositionBatch, TranspositionBatcher};
-use crate::transposition_dataset::SplitBoardDataset;
 
 #[derive(Module, Debug)]
 pub struct Model<B: Backend> {

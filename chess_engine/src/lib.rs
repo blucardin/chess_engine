@@ -1,6 +1,5 @@
 pub mod move_serialization;
 
-use bevy::prelude::{Color, Resource};
 use bincode::{Decode, Encode};
 use rand::seq::IndexedRandom;
 use std::cmp::PartialEq;
@@ -15,13 +14,6 @@ use pgn_reader::{CastlingSide, File, Rank, Role, San, SanPlus};
 pub const BOARD_TILE_DIM: isize = 8;
 const DEFAULT_BOARD_TILE_SIZE: f32 = 100.0;
 pub const DEFAULT_BOARD_HEIGHT: f32 = BOARD_TILE_DIM as f32 * DEFAULT_BOARD_TILE_SIZE;
-
-pub const WHITE_TILE_COLOR: Color = Color::srgb_u8(254, 207, 159);
-
-pub const BLACK_TILE_COLOR: Color = Color::srgb_u8(210, 140, 69);
-
-pub const POSSIBLE_MOVE_HIGHLIGHT_COLOR: Color = Color::srgba_u8(32, 194, 29, 255 / 4);
-pub const PROMOTION_BACKGROUND_COLOR: Color = Color::srgb_u8(45, 45, 45);
 const PIECES_FOLDER: &str = "pieces-basic-png";
 
 const ROOK_SEARCH_OFFSETS: [(isize, isize); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
@@ -179,7 +171,7 @@ impl Piece {
     }
 }
 
-#[derive(Resource, Clone)]
+#[derive(Clone)]
 pub struct Board {
     player_1_color: PieceColor,
     pub turn: PieceColor,

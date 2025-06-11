@@ -1,5 +1,5 @@
-use chess::move_serialization::{MovesAndLabelRaw, CONFIG};
-use chess::{Board, Move, PieceColor};
+use chess_engine::move_serialization::{MovesAndLabelRaw, CONFIG};
+use chess_engine::{Board, Move, PieceColor};
 use pgn_reader::{BufferedReader, Outcome, SanPlus, Skip, Visitor};
 use serde_rusqlite::*;
 use std::fs::File;

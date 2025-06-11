@@ -26,8 +26,9 @@ impl<B: Backend> Batcher<B, TranspositionItem, TranspositionBatch<B>> for Transp
         let targets = items
             .iter()
             .map(|item| {
-                Tensor::<B, 2, Int>::from_data([match item.label {true => 1, false => 0}.elem::<B::IntElem>()], device) // double check that this outputs the right tensor, [target] so the batch becomes [[target1], [target2]]
+                Tensor::<B, 1, Int>::from_data([match item.label {true => 1, false => 0}.elem::<B::IntElem>()], device) // double check that this outputs the right tensor, [target] so the batch becomes [[target1], [target2]]
             })
+            .map(|tensor| tensor.reshape([1, 1]))
             .collect();
 
         let images = Tensor::cat(images, 0);

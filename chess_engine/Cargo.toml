@@ -1,0 +1,21 @@
+[package]
+name = "chess_engine"
+version = "0.1.0"
+edition = "2024"
+
+## Enable a small amount of optimization in the dev profile.
+#[profile.dev]
+#opt-level = 1
+#
+## Enable a large amount of optimization in the dev profile for dependencies.
+#[profile.dev.package."*"]
+#opt-level = 3
+
+
+[dependencies]
+rand = "0.9.1"
+either = "1.15.0"
+pgn-reader = "0.26.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_bytes = "0.11"
+bincode = "2.0.1"

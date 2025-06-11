@@ -1,8 +1,20 @@
 use bevy::input::common_conditions::*;
 use bevy::prelude::*;
 
-use chess::*;
-use chess::Move;
+use chess_engine::*;
+use chess_engine::Move;
+
+pub const WHITE_TILE_COLOR: Color = Color::srgb_u8(254, 207, 159);
+
+pub const BLACK_TILE_COLOR: Color = Color::srgb_u8(210, 140, 69);
+
+pub const POSSIBLE_MOVE_HIGHLIGHT_COLOR: Color = Color::srgba_u8(32, 194, 29, 255 / 4);
+pub const PROMOTION_BACKGROUND_COLOR: Color = Color::srgb_u8(45, 45, 45);
+
+#[derive(Resource, Clone)]
+struct BoardResource {
+    board : Board
+}
 
 pub struct Game;
 
@@ -11,7 +23,7 @@ impl Plugin for Game {
         app.insert_resource(GameSettings {
             computer_player: true,
         });
-        app.insert_resource(Board::new(PieceColor::White));
+        app.insert_resource(BoardResource{ board : Board::new(PieceColor::White)});
         app.insert_state(ComputerTurnState::Player);
         app.add_systems(Startup, setup);
         app.add_systems(
@@ -58,7 +70,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut board: ResMut<Board>,
+    mut board_resource: ResMut<BoardResource>,
     window: Single<&mut Window>,
     asset_server: Res<AssetServer>,
 ) {
@@ -70,7 +82,7 @@ fn setup(
     let size_x = width / BOARD_TILE_DIM as f32;
     let size_y = height / BOARD_TILE_DIM as f32;
 
-    for (idx, row) in board.squares.iter_mut().enumerate() {
+    for (idx, row) in board_resource.board.squares.iter_mut().enumerate() {
         for (idy, _) in row.iter_mut().enumerate() {
             // load the tile that the piece is on
             let color = if (idx + idy) % 2 == 0 {
@@ -90,12 +102,12 @@ fn setup(
         }
     }
 
-    draw_pieces(&mut commands, &board, &window, &asset_server);
+    draw_pieces(&mut commands, &board_resource, &window, &asset_server);
 }
 
 fn draw_pieces(
     commands: &mut Commands,
-    board: &ResMut<Board>,
+    board_resource: &ResMut<BoardResource>,
     window: &Single<&mut Window>,
     asset_server: &Res<AssetServer>,
 ) {
@@ -105,7 +117,7 @@ fn draw_pieces(
     let size_x = width / BOARD_TILE_DIM as f32;
     let size_y = height / BOARD_TILE_DIM as f32;
 
-    for (idx, row) in board.squares.iter().enumerate() {
+    for (idx, row) in board_resource.board.squares.iter().enumerate() {
         for (idy, square) in row.iter().enumerate() {
             let transform =
                 generate_transform_for_board_gui(width, height, size_x, size_y, idx, idy);
@@ -145,7 +157,7 @@ struct PromotionPicker {
 
 fn mouse_button_input(
     // buttons: Res<ButtonInput<MouseButton>>,
-    mut board: ResMut<Board>,
+    mut board_resource: ResMut<BoardResource>,
     game_settings: Res<GameSettings>,
     window: Single<&mut Window>,
     mut commands: Commands,
@@ -177,7 +189,7 @@ fn mouse_button_input(
         if !promotions.is_empty() {
             for promotion in promotions.iter() {
                 if promotion.board_position == board_click_position {
-                    board.apply_move(
+                    board_resource.board.apply_move(
                         &promotion.piece_move,
                     );
 
@@ -210,7 +222,7 @@ fn mouse_button_input(
                         .iter()
                         .for_each(|current_highlight| commands.entity(current_highlight).despawn());
 
-                    let going_up = board.pawn_going_up();
+                    let going_up = board_resource.board.pawn_going_up();
                     let direction: isize = if going_up { -1 } else { 1 };
 
                     for (idx, piece_person) in POSSIBLE_PAWN_PROMOTES.iter().enumerate() {
@@ -251,7 +263,7 @@ fn mouse_button_input(
                             },
                             Sprite {
                                 image: asset_server.load(format_piece_filename(
-                                    board.turn.file_string(),
+                                    board_resource.board.turn.file_string(),
                                     piece_person.file_string(),
                                 )),
                                 custom_size: Some(Vec2::new(size_x, size_y)),
@@ -268,7 +280,7 @@ fn mouse_button_input(
                 //     .iter()
                 //     .for_each(|current_highlight| commands.entity(current_highlight).despawn());
 
-                board.apply_move(
+                board_resource.board.apply_move(
                     &possible_move.piece_move,
                 );
 
@@ -283,7 +295,7 @@ fn mouse_button_input(
             .for_each(|current_highlight| commands.entity(current_highlight).despawn());
 
         if moved {
-            let game_state = board.outcome();
+            let game_state = board_resource.board.outcome();
 
             // remove all the pieces
             gui_pieces
@@ -291,7 +303,7 @@ fn mouse_button_input(
                 .for_each(|gui_piece| commands.entity(gui_piece).despawn());
 
             // redraw all the pieces
-            draw_pieces(&mut commands, &board, &window, &asset_server);
+            draw_pieces(&mut commands, &board_resource, &window, &asset_server);
 
             match game_state {
                 GameState::Playing => {}
@@ -333,7 +345,7 @@ fn mouse_button_input(
             return;
         }
 
-        if let Some(moves) = board.get_possible_moves(board_click_position) {
+        if let Some(moves) = board_resource.board.get_possible_moves(board_click_position) {
             commands.spawn((
                 Highlight,
                 Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
@@ -363,7 +375,7 @@ fn mouse_button_input(
                         }
                     }
                     Move::Castle { ref side } => {
-                        let final_y = if board.pawn_going_up() {
+                        let final_y = if board_resource.board.pawn_going_up() {
                             BOARD_TILE_DIM - 1
                         } else {
                             0
@@ -406,7 +418,7 @@ fn mouse_button_input(
 
 fn computer_move(
     // buttons: Res<ButtonInput<MouseButton>>,
-    mut board: ResMut<Board>,
+    mut board_resource: ResMut<BoardResource>,
     game_settings: Res<GameSettings>,
     window: Single<&mut Window>,
     mut commands: Commands,
@@ -414,10 +426,10 @@ fn computer_move(
     asset_server: Res<AssetServer>,
     mut next_computer_turn_state: ResMut<NextState<ComputerTurnState>>,
 ) {
-    let computer_move = board.find_computer_move(board.get_all_moves_for_turn());
+    let computer_move = board_resource.board.find_computer_move(board_resource.board.get_all_moves_for_turn());
 
     println!("computer_move: {:?}", computer_move);
-    board.apply_move(
+    board_resource.board.apply_move(
         &computer_move,
     );
 
@@ -427,9 +439,9 @@ fn computer_move(
         .for_each(|gui_piece| commands.entity(gui_piece).despawn());
 
     // redraw all the pieces
-    draw_pieces(&mut commands, &board, &window, &asset_server);
+    draw_pieces(&mut commands, &board_resource, &window, &asset_server);
 
-    let game_state = board.outcome();
+    let game_state = board_resource.board.outcome();
 
     // todo: extract this as a function
     match game_state {

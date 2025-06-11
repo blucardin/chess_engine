@@ -2,8 +2,8 @@ use burn::data::dataset::transform::PartialDataset;
 use burn::data::dataset::{
     Dataset, SqliteDatasetError
 };
-use chess::move_serialization::{MovesAndLabelRaw, CONFIG};
-use chess::{Board, Move, PieceColor, BOARD_TILE_DIM};
+use chess_engine::move_serialization::{MovesAndLabelRaw, CONFIG};
+use chess_engine::{Board, Move, PieceColor, BOARD_TILE_DIM};
 use r2d2::Pool;
 use r2d2_sqlite::{
     rusqlite::OpenFlags,
