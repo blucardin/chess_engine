@@ -14,8 +14,8 @@ use burn::{
 pub struct Model<B: Backend> {
     dropout: Dropout,
     linear1: Linear<B>,
-    linear2: Linear<B>,
-    linear3: Linear<B>,
+    // linear2: Linear<B>,
+    // linear3: Linear<B>,
     linear4: Linear<B>,
     linear5: Linear<B>,
     activation: Relu,
@@ -35,8 +35,8 @@ impl ModelConfig {
         Model {
             activation: Relu::new(),
             linear1: LinearConfig::new(8 * 8 * 10, 1024).init(device),
-            linear2: LinearConfig::new(1024, 2048).init(device),
-            linear3: LinearConfig::new(2048, 1024).init(device),
+            // linear2: LinearConfig::new(1024, 2048).init(device),
+            // linear3: LinearConfig::new(2048, 1024).init(device),
             linear4: LinearConfig::new(1024, 128).init(device),
             linear5: LinearConfig::new(128, 1).init(device),
             sigmoid: Sigmoid::new(),    // todo: replace with hard sigmoid
@@ -58,19 +58,19 @@ impl<B: Backend> Model<B> {
         // 64, 640
         
         let x = self.linear1.forward(x);
-        let x = self.dropout.forward(x);
+        // let x = self.dropout.forward(x);
         let x = self.activation.forward(x);
 
-        let x = self.linear2.forward(x);
-        let x = self.dropout.forward(x);
-        let x = self.activation.forward(x);
-
-        let x = self.linear3.forward(x);
-        let x = self.dropout.forward(x);
-        let x = self.activation.forward(x);
+        // let x = self.linear2.forward(x);
+        // let x = self.dropout.forward(x);
+        // let x = self.activation.forward(x);
+        // 
+        // let x = self.linear3.forward(x);
+        // let x = self.dropout.forward(x);
+        // let x = self.activation.forward(x);
 
         let x = self.linear4.forward(x);
-        let x = self.dropout.forward(x);
+        // let x = self.dropout.forward(x);
         let x = self.activation.forward(x);
 
         let x = self.linear5.forward(x); // [batch_size, num_classes]

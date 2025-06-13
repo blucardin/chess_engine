@@ -22,3 +22,12 @@ r2d2_sqlite = "0.27.0"
 r2d2 = "0.8.10"
 chess_engine = { path = "../chess_engine" }
 
+
+[dev-dependencies]
+criterion = "0.6.0"
+gnuplot = "0.0.46"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
+
