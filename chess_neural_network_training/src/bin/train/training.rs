@@ -5,7 +5,7 @@ use burn::prelude::Module;
 use burn::record::CompactRecorder;
 use burn::tensor::backend::AutodiffBackend;
 use burn::train::LearnerBuilder;
-use burn::train::metric::LossMetric;
+use burn::train::metric::{AccuracyMetric, LossMetric};
 use crate::data_batcher::TranspositionBatcher;
 use crate::model::ModelConfig;
 use crate::transposition_dataset::SplitBoardDataset;
@@ -55,8 +55,8 @@ pub fn train<B: AutodiffBackend>(artifact_dir: &str, config: TrainingConfig, dev
         .build(SplitBoardDataset::new("training_data/moves_database.db3", "test"));
 
     let learner = LearnerBuilder::new(artifact_dir)
-        // .metric_train_numeric(AccuracyMetric::new())
-        // .metric_valid_numeric(AccuracyMetric::new())
+        .metric_train_numeric(AccuracyMetric::new())
+        .metric_valid_numeric(AccuracyMetric::new())
         .metric_train_numeric(LossMetric::new())
         .metric_valid_numeric(LossMetric::new())
         .with_file_checkpointer(CompactRecorder::new())

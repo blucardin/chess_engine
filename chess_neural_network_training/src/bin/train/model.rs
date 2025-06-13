@@ -1,8 +1,8 @@
 use crate::data_batcher::TranspositionBatch;
-use burn::nn::loss::BinaryCrossEntropyLossConfig;
+use burn::nn::loss::{BinaryCrossEntropyLossConfig, CrossEntropyLossConfig};
 use burn::nn::Sigmoid;
 use burn::tensor::backend::AutodiffBackend;
-use burn::train::{MultiLabelClassificationOutput, TrainOutput, TrainStep, ValidStep};
+use burn::train::{ClassificationOutput, MultiLabelClassificationOutput, TrainOutput, TrainStep, ValidStep};
 use burn::{
     nn::{
         Dropout, DropoutConfig, Linear, LinearConfig, Relu
@@ -19,7 +19,7 @@ pub struct Model<B: Backend> {
     linear4: Linear<B>,
     linear5: Linear<B>,
     activation: Relu,
-    sigmoid: Sigmoid,
+    // sigmoid: Sigmoid,
 }
 
 #[derive(Config, Debug)]
@@ -38,8 +38,8 @@ impl ModelConfig {
             // linear2: LinearConfig::new(1024, 2048).init(device),
             // linear3: LinearConfig::new(2048, 1024).init(device),
             linear4: LinearConfig::new(512, 128).init(device),
-            linear5: LinearConfig::new(128, 1).init(device),
-            sigmoid: Sigmoid::new(),    // todo: replace with hard sigmoid
+            linear5: LinearConfig::new(128, 2).init(device),
+            // sigmoid: Sigmoid::new(),    // todo: replace with hard sigmoid
             dropout: DropoutConfig::new(self.dropout).init(),
         }
     }
@@ -75,10 +75,12 @@ impl<B: Backend> Model<B> {
 
         let x = self.linear5.forward(x); // [batch_size, num_classes]
 
-        self.sigmoid.forward(x) 
+        // self.sigmoid.forward(x)
         
         // x.squeeze_dims(&[1isize])
         // // 64
+
+        x
     }
 }
 
@@ -86,30 +88,30 @@ impl<B: Backend> Model<B> {
     pub fn forward_classification(
         &self,
         transpositions: Tensor<B, 4>,
-        targets: Tensor<B, 2, Int>,
-    ) -> MultiLabelClassificationOutput<B> {
+        targets: Tensor<B, 1, Int>,
+    ) -> ClassificationOutput<B> {
         
         let output = self.forward(transpositions);
-        let loss = BinaryCrossEntropyLossConfig::new()
+        let loss = CrossEntropyLossConfig::new()
             .init(&output.device())
             .forward(output.clone(), targets.clone());
-        
+
         // let targets_with_extra_dim = targets.unsqueeze_dim(1);
 
-        MultiLabelClassificationOutput::new(loss, output, targets) // todo: double check that all the tensor sizes are correct
+        ClassificationOutput::new(loss, output, targets)
     }
 }
 
-impl<B: AutodiffBackend> TrainStep<TranspositionBatch<B>, MultiLabelClassificationOutput<B>> for Model<B> {
-    fn step(&self, batch: TranspositionBatch<B>) -> TrainOutput<MultiLabelClassificationOutput<B>> {
+impl<B: AutodiffBackend> TrainStep<TranspositionBatch<B>, ClassificationOutput<B>> for Model<B> {
+    fn step(&self, batch: TranspositionBatch<B>) -> TrainOutput<ClassificationOutput<B>> {
         let item = self.forward_classification(batch.transposition_tensor, batch.targets);
 
         TrainOutput::new(self, item.loss.backward(), item)
     }
 }
 
-impl<B: Backend> ValidStep<TranspositionBatch<B>, MultiLabelClassificationOutput<B>> for Model<B> {
-    fn step(&self, batch: TranspositionBatch<B>) -> MultiLabelClassificationOutput<B> {
+impl<B: Backend> ValidStep<TranspositionBatch<B>, ClassificationOutput<B>> for Model<B> {
+    fn step(&self, batch: TranspositionBatch<B>) -> ClassificationOutput<B> {
         self.forward_classification(batch.transposition_tensor, batch.targets)
     }
 }

@@ -11,7 +11,7 @@ pub struct TranspositionBatcher {}
 #[derive(Clone, Debug)]
 pub struct TranspositionBatch<B: Backend> {
     pub transposition_tensor: Tensor<B, 4>,
-    pub targets: Tensor<B, 2, Int>,
+    pub targets: Tensor<B, 1, Int>,
 }
 
 impl<B: Backend> Batcher<B, TranspositionItem, TranspositionBatch<B>> for TranspositionBatcher {
@@ -28,7 +28,6 @@ impl<B: Backend> Batcher<B, TranspositionItem, TranspositionBatch<B>> for Transp
             .map(|item| {
                 Tensor::<B, 1, Int>::from_data([match item.label {true => 1, false => 0}.elem::<B::IntElem>()], device) // double check that this outputs the right tensor, [target] so the batch becomes [[target1], [target2]]
             })
-            .map(|tensor| tensor.reshape([1, 1]))
             .collect();
 
         let images = Tensor::cat(images, 0);
