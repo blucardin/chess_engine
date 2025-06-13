@@ -34,10 +34,10 @@ impl ModelConfig {
     pub fn init<B: Backend>(&self, device: &B::Device) -> Model<B> {
         Model {
             activation: Relu::new(),
-            linear1: LinearConfig::new(8 * 8 * 10, 1024).init(device),
+            linear1: LinearConfig::new(8 * 8 * 10, 512).init(device),
             // linear2: LinearConfig::new(1024, 2048).init(device),
             // linear3: LinearConfig::new(2048, 1024).init(device),
-            linear4: LinearConfig::new(1024, 128).init(device),
+            linear4: LinearConfig::new(512, 128).init(device),
             linear5: LinearConfig::new(128, 1).init(device),
             sigmoid: Sigmoid::new(),    // todo: replace with hard sigmoid
             dropout: DropoutConfig::new(self.dropout).init(),

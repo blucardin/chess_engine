@@ -12,7 +12,7 @@ use r2d2_sqlite::{
 use serde::{Deserialize, Serialize};
 use serde_rusqlite::from_rows;
 use std::path::PathBuf;
-
+use chess_neural_network_training::MovesDone;
 
 /// MNIST item.
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -28,42 +28,43 @@ pub struct TranspositionItem {
 //     MapperDataset<SqliteDataset<MovesAndLabelRaw>, BytesToTransposition, MovesAndLabelRaw>;
 
 pub struct BoardDataset {
-    conn_pool: Pool<SqliteConnectionManager>,
     blank_board: Board,
     len: usize,
+    vector_of_moves: Vec<(Move, MovesDone)>,
 }
 
 impl Dataset<TranspositionItem> for BoardDataset {
     fn get(&self, index: usize) -> Option<TranspositionItem> {
-        let connection = self.conn_pool.get().unwrap();
-        let mut statement = connection
-            .prepare_cached(
-                "SELECT *
-                FROM games
-                WHERE id > ?
-                ORDER BY id ASC
-                LIMIT 1;
-                ",
-            )
-            .unwrap();
-
-        let mut res = from_rows::<MovesAndLabelRaw>(statement.query([index]).unwrap());
-
-        let raw_moves_and_label = res.next().unwrap().unwrap();
-
-        let (moves, _len): (Vec<Move>, usize) =
-            bincode::decode_from_slice(&raw_moves_and_label.move_list[..], CONFIG).unwrap();
 
         let mut new_board = self.blank_board.clone();
 
-        for piece_move in &moves[0..moves.len() - (raw_moves_and_label.id as usize - index)] {
-            new_board.apply_move(piece_move);
-            // println!("Applied move {:?}", *piece_move);
+        let mut i = index;
+        
+        let mut vector = vec![];
+
+        while let (piece_move, MovesDone::MoreMoves) = self.vector_of_moves.get(i).unwrap() {
+            // println!("{}", new_board);
+            // println!("{:?}", piece_move);
+            vector.push(piece_move);
+            i -= 1;
         }
+        
+        let (piece_move, winner) = self.vector_of_moves.get(i).unwrap();
+        vector.push(piece_move);
+
+        for piece_move in vector.iter().rev() {
+            new_board.apply_move(*piece_move);
+        }
+
+        let white_winner = match winner {
+            MovesDone::WhiteWinner => {true}
+            MovesDone::BlackWinner => {false}
+            MovesDone::MoreMoves => {panic!("Not supposed to happen")}
+        };
 
         Some(TranspositionItem {
             transposition: new_board.generate_transposition(),
-            label: raw_moves_and_label.white_winner,
+            label: white_winner,
         })
     }
 
@@ -84,28 +85,41 @@ impl BoardDataset {
             .unwrap();
 
         let connection = conn_pool.get().unwrap();
+
         let mut statement = connection
-            .prepare(
-                "SELECT id
-                FROM games
-                ORDER BY id DESC
-                LIMIT 1;",
+            .prepare_cached(
+                "SELECT *
+                FROM games;
+                ",
             )
             .unwrap();
 
-        let len: usize = statement
-            .query([])
-            .unwrap()
-            .next()
-            .unwrap()
-            .unwrap()
-            .get(0)
-            .unwrap();
+        let res = from_rows::<MovesAndLabelRaw>(statement.query([]).unwrap());
 
+        let mut output: Vec<(Move, MovesDone)> = vec![];
+
+        for game in res {
+            let game = game.unwrap();
+
+            let (moves, _len): (Vec<Move>, usize) =
+                bincode::decode_from_slice(&game.move_list[..], CONFIG).unwrap();
+
+            let mut moves_iterator = moves.iter();
+
+            output.push((moves_iterator.next().unwrap().clone(), match game.white_winner {
+                true => {MovesDone::WhiteWinner}
+                false => {MovesDone::BlackWinner}
+            }));
+
+            for piece_move in moves_iterator {
+                output.push((piece_move.clone(), MovesDone::MoreMoves));
+            }
+        }
+        
         Self {
-            conn_pool,
             blank_board: Board::new(PieceColor::White),
-            len,
+            len: output.len(), 
+            vector_of_moves: output, 
         }
     }
 }

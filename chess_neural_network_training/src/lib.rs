@@ -135,7 +135,6 @@ pub fn make_vec(conn_pool : &Pool<SqliteConnectionManager>) ->  Vec<(Move, Moves
     }
     
     output
-    
 }
 
 #[derive(Debug)]
@@ -152,15 +151,22 @@ pub fn get_vec(index: usize, blank_board: &Board, moves_vector : &Vec<(Move, Mov
     
     let mut i = index; 
     
+    let mut vector = vec![];
+    
     while let (piece_move, MovesDone::MoreMoves) = moves_vector.get(i).unwrap() {
-        println!("{}", new_board);
-        println!("{:?}", piece_move);
-        new_board.apply_move(piece_move);
+        // println!("{}", new_board);
+        // println!("{:?}", piece_move);
+        vector.push(piece_move);
         i -= 1; 
     }
     
+    
     let (piece_move, winner) = moves_vector.get(i).unwrap();
-    new_board.apply_move(piece_move);
+    vector.push(piece_move);
+    
+    for piece_move in vector.iter().rev() {
+        new_board.apply_move(*piece_move);
+    }
     
     match winner {
         MovesDone::WhiteWinner => {(new_board, true) }
