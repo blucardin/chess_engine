@@ -1,21 +1,18 @@
-mod model;
-mod data_batcher;
-mod transposition_dataset;
-mod training;
-
-use crate::{model::ModelConfig, training::TrainingConfig};
+use chess_neural_network_training::training::TrainingConfig;
 use burn::{
-    backend::{Autodiff, Wgpu},
+    backend::{Autodiff, Cuda},
     optim::AdamConfig,
 };
+use chess_neural_network_training::model::ModelConfig;
 
 fn main() {
-    type MyBackend = Wgpu<f32, i32>;
+    type MyBackend = Cuda<f32, i32>;
     type MyAutodiffBackend = Autodiff<MyBackend>;
 
-    let device = burn::backend::wgpu::WgpuDevice::default();
+    let device = burn::backend::cuda::CudaDevice::default(); 
+    println!("CUDA Device: {}", device.index);
     let artifact_dir = "/tmp/guide";
-    crate::training::train::<MyAutodiffBackend>(
+    chess_neural_network_training::training::train::<MyAutodiffBackend>(
         artifact_dir,
         TrainingConfig::new(ModelConfig::new(), AdamConfig::new()),
         device.clone(),

@@ -4,6 +4,10 @@ use serde_rusqlite::from_rows;
 use chess_engine::{Board, Move};
 use chess_engine::move_serialization::{MovesAndLabelRaw, CONFIG};
 
+pub mod transposition_dataset;
+pub mod data_batcher;
+pub mod model;
+pub mod training;
 
 // default sqlite sorting method
 #[inline]
