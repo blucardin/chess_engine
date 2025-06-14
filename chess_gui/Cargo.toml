@@ -15,4 +15,6 @@ edition = "2024"
 [dependencies]
 bevy = "0.16.0"
 chess_engine = { path = "../chess_engine" }
+board_evaluator = { path = "../board_evaluator" }
+
 

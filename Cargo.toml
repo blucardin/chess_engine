@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["chess_engine", "chess_gui", "chess_neural_network_training"]
+members = [ "board_evaluator","chess_engine", "chess_gui", "chess_neural_network_training"]
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

@@ -3,6 +3,7 @@ use bevy::prelude::*;
 
 use chess_engine::*;
 use chess_engine::Move;
+use board_evaluator::ChessEngine;
 
 pub const WHITE_TILE_COLOR: Color = Color::srgb_u8(254, 207, 159);
 
@@ -11,9 +12,9 @@ pub const BLACK_TILE_COLOR: Color = Color::srgb_u8(210, 140, 69);
 pub const POSSIBLE_MOVE_HIGHLIGHT_COLOR: Color = Color::srgba_u8(32, 194, 29, 255 / 4);
 pub const PROMOTION_BACKGROUND_COLOR: Color = Color::srgb_u8(45, 45, 45);
 
-#[derive(Resource, Clone)]
-struct BoardResource {
-    board : Board
+struct ChessGameResource {
+    board : Board, 
+    engine: ChessEngine
 }
 
 pub struct Game;
@@ -23,7 +24,7 @@ impl Plugin for Game {
         app.insert_resource(GameSettings {
             computer_player: true,
         });
-        app.insert_resource(BoardResource{ board : Board::new(PieceColor::White)});
+        app.insert_non_send_resource(ChessGameResource { board : Board::new(PieceColor::White), engine: ChessEngine::new() });
         app.insert_state(ComputerTurnState::Player);
         app.add_systems(Startup, setup);
         app.add_systems(
@@ -70,7 +71,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut board_resource: ResMut<BoardResource>,
+    mut board_resource: NonSendMut<ChessGameResource>,
     window: Single<&mut Window>,
     asset_server: Res<AssetServer>,
 ) {
@@ -107,7 +108,7 @@ fn setup(
 
 fn draw_pieces(
     commands: &mut Commands,
-    board_resource: &ResMut<BoardResource>,
+    board_resource: &NonSendMut<ChessGameResource>,
     window: &Single<&mut Window>,
     asset_server: &Res<AssetServer>,
 ) {
@@ -157,7 +158,7 @@ struct PromotionPicker {
 
 fn mouse_button_input(
     // buttons: Res<ButtonInput<MouseButton>>,
-    mut board_resource: ResMut<BoardResource>,
+    mut board_resource: NonSendMut<ChessGameResource>,
     game_settings: Res<GameSettings>,
     window: Single<&mut Window>,
     mut commands: Commands,
@@ -418,7 +419,7 @@ fn mouse_button_input(
 
 fn computer_move(
     // buttons: Res<ButtonInput<MouseButton>>,
-    mut board_resource: ResMut<BoardResource>,
+    mut board_resource: NonSendMut<ChessGameResource>,
     game_settings: Res<GameSettings>,
     window: Single<&mut Window>,
     mut commands: Commands,
@@ -426,8 +427,10 @@ fn computer_move(
     asset_server: Res<AssetServer>,
     mut next_computer_turn_state: ResMut<NextState<ComputerTurnState>>,
 ) {
-    let computer_move = board_resource.board.find_computer_move(board_resource.board.get_all_moves_for_turn());
-
+    // let computer_move = board_resource.board.find_computer_move(board_resource.board.get_all_moves_for_turn());
+    
+    let computer_move = board_resource.engine.next_best_move(&board_resource.board);
+    
     println!("computer_move: {:?}", computer_move);
     board_resource.board.apply_move(
         &computer_move,

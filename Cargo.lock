@@ -1597,6 +1597,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "board_evaluator"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "chess_engine",
+ "chess_neural_network_training",
+]
+
+[[package]]
 name = "bstr"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2154,6 +2163,7 @@ name = "chess_gui"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "board_evaluator",
  "chess_engine",
 ]
 

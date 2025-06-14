@@ -63,7 +63,7 @@ fn main() {
 
     // println!("{}", get_vec(24, &blank_board, &vector).0);
 
-    for index in 81..175 {
+    for index in 0..26 {
         let (transposition_board, white_winner) = get_vec(index, &blank_board, &vector);
         println!("{}",transposition_board);
         infer::<MyBackend>(
