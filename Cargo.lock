@@ -2171,6 +2171,7 @@ dependencies = [
  "r2d2_sqlite",
  "serde",
  "serde_rusqlite",
+ "shakmaty",
 ]
 
 [[package]]

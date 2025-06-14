@@ -1,5 +1,6 @@
 use std::path::PathBuf;
-use burn::backend::{Autodiff, Cuda};
+use burn::backend::{Autodiff, Wgpu};
+use burn::backend::wgpu::WgpuDevice;
 use burn::data::dataloader::batcher::Batcher;
 use burn::data::dataset::{Dataset, SqliteDatasetError};
 use burn::prelude::{Backend, Config, Module};
@@ -11,17 +12,11 @@ use r2d2_sqlite::SqliteConnectionManager;
 use chess_engine::{Board, PieceColor};
 use chess_neural_network_training::data_batcher::TranspositionBatcher;
 use chess_neural_network_training::{get_sqlite_sorting, get_vec, make_vec};
+use chess_neural_network_training::model::{Model, ModelRecord};
 use chess_neural_network_training::training::TrainingConfig;
 use chess_neural_network_training::transposition_dataset::{SplitBoardDataset, TranspositionItem};
 
-pub fn infer<B: Backend>(artifact_dir: &str, device: &B::Device, item: TranspositionItem) {
-    let config = TrainingConfig::load(format!("{artifact_dir}/config.json"))
-        .expect("Config should exist for the model; run train first");
-    let record = CompactRecorder::new()
-        .load(format!("{artifact_dir}/model").into(), device)
-        .expect("Trained model should exist; run train first");
-
-    let model = config.model.init::<B>(device).load_record(record);
+pub fn infer<B: Backend>(model: &Model<B>, device: &B::Device, item: TranspositionItem) {
 
     let label = item.label;
     let batcher = TranspositionBatcher::default();
@@ -39,12 +34,19 @@ pub fn infer<B: Backend>(artifact_dir: &str, device: &B::Device, item: Transposi
 
 fn main() {
 
-    type MyBackend = Cuda<f32, i32>;
-    type MyAutodiffBackend = Autodiff<MyBackend>;
+    type MyBackend = Wgpu<f32, i32>;
 
-    let device = burn::backend::cuda::CudaDevice::default();
-    println!("CUDA Device: {}", device.index);
-    let artifact_dir = "/tmp/guide";
+    let device = burn::backend::wgpu::WgpuDevice::default();
+    // println!("CUDA Device: {}", device.index);
+    let artifact_dir = "/Users/sam/RustroverProjects/chess/model";
+
+    let config = TrainingConfig::load(format!("{artifact_dir}/config.json"))
+        .expect("Config should exist for the model; run train first");
+    let record: ModelRecord<MyBackend>  = CompactRecorder::new()
+        .load(format!("{artifact_dir}/model").into(), &device)
+        .expect("Trained model should exist; run train first");
+
+    let model = config.model.init::<>(&device).load_record(record);
 
 
     let blank_board = Board::new(PieceColor::White);
@@ -65,7 +67,7 @@ fn main() {
         let (transposition_board, white_winner) = get_vec(index, &blank_board, &vector);
         println!("{}",transposition_board);
         infer::<MyBackend>(
-            artifact_dir,
+            &model,
             &device,
             TranspositionItem {
                 transposition: transposition_board.generate_transposition(),

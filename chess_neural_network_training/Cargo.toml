@@ -21,6 +21,7 @@ burn = { version = "~0.17", features = ["train", "cuda", "vision"] }
 r2d2_sqlite = "0.27.0"
 r2d2 = "0.8.10"
 chess_engine = { path = "../chess_engine" }
+shakmaty = "0.27.0"
 
 
 [dev-dependencies]

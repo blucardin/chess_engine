@@ -8,7 +8,7 @@ use std::{fmt, ops};
 extern crate either;
 use either::Either;
 
-use pgn_reader::{CastlingSide, File, Rank, Role, San, SanPlus};
+use pgn_reader::{CastlingSide, File, Rank, Role, San , SanPlus};
 // 0.9.0
 
 pub const BOARD_TILE_DIM: isize = 8;
@@ -980,8 +980,7 @@ impl Board {
         self.move_number += 1;
     }
 
-    pub fn move_from_san(&mut self, san_plus_move: SanPlus) -> Move {
-        let san = san_plus_move.san;
+    pub fn move_from_san(&mut self, san: San) -> Move {
 
         match san {
             San::Normal {

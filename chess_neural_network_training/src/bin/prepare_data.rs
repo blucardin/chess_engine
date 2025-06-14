@@ -1,17 +1,17 @@
 use chess_engine::move_serialization::{MovesAndLabelRaw, CONFIG};
 use chess_engine::{Board, Move, PieceColor};
 use pgn_reader::{BufferedReader, Outcome, SanPlus, Skip, Visitor};
+use shakmaty::san::Suffix; 
 use serde_rusqlite::*;
 use std::fs::File;
 use std::io;
 use std::io::ErrorKind;
 
-
 struct Looker {
     moves: i64,
     normal_termination: bool,
     white_winner: Option<bool>,
-    skip: bool,
+    ended_in_checkmate: bool,
     board: Board,
     games: i32,
     move_list: Vec<Move>,
@@ -36,7 +36,7 @@ impl Looker {
             normal_termination: false,
             white_winner: None,
             board: Board::new(PieceColor::White),
-            skip: false,
+            ended_in_checkmate: false,
             games: 0,
             move_list: Vec::with_capacity(265), // Average number of moves was 65.6802940515, max was 256
             connection: connection,
@@ -51,7 +51,7 @@ impl Visitor for Looker {
         self.normal_termination = false;
         self.white_winner = None;
         self.board = Board::new(PieceColor::White);
-        self.skip = false;
+        self.ended_in_checkmate = false;
         self.move_list.clear();
     }
 
@@ -76,7 +76,6 @@ impl Visitor for Looker {
     }
     fn end_headers(&mut self) -> Skip {
         if !self.normal_termination || self.white_winner.is_none() {
-            self.skip = true;
             return Skip(true);
         }
         self.games += 1;
@@ -84,10 +83,16 @@ impl Visitor for Looker {
     }
 
     fn san(&mut self, san_plus: SanPlus) {
-        let piece_move = self.board.move_from_san(san_plus);
+
+        if let Some(Suffix::Checkmate) = san_plus.suffix {
+            self.ended_in_checkmate = true
+        }
+
+        let piece_move = self.board.move_from_san(san_plus.san);
         self.move_list.push(piece_move);
         // println!("{}", self.board);
         self.moves += 1;
+
     }
 
     fn begin_variation(&mut self) -> Skip {
@@ -95,9 +100,14 @@ impl Visitor for Looker {
     }
 
     fn outcome(&mut self, _outcome: Option<Outcome>) {
+        
+        if !self.ended_in_checkmate { 
+            return;
+        }
+        
         // println!("{}", self.move_list.join(" "));
         println!("moves parsed: {}", self.moves);
-        // todo: logic for saving the move and white_winner to the sql database
+
         self.connection.execute("INSERT INTO games (id, white_winner, move_list) VALUES (:id, :white_winner, :move_list)", to_params_named(&MovesAndLabelRaw {
             id: self.moves,
             white_winner: self.white_winner.unwrap(),
