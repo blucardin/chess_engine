@@ -429,7 +429,7 @@ fn computer_move(
 ) {
     // let computer_move = board_resource.board.find_computer_move(board_resource.board.get_all_moves_for_turn());
     
-    let computer_move = board_resource.engine.next_best_move_minimax(&board_resource.board, 1);
+    let computer_move = board_resource.engine.next_best_move_minimax_ab(&board_resource.board.clone(), 1);
     
     // println!("computer_move: {:?}", computer_move);
     board_resource.board.apply_move(

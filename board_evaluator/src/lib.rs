@@ -28,7 +28,7 @@ impl ChessEngine {
 
     pub fn next_best_move_minimax(&self, board: &Board, depth: i32) -> Move {
         if board.turn == PieceColor::White {
-            return self.min(board, depth).1;
+            return self.min(board, depth).1; // NOTE TO SELF: I somehow wrote the minimax backwards for the functional solution, so the min is actually the max, and if it is white's turn, you call the max
         }
 
         self.max(board, depth).1
@@ -51,7 +51,7 @@ impl ChessEngine {
                 }
                 
             })
-            .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap()).unwrap();
+            .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap()).unwrap(); // Here is where the issue is, this is max where it is supposed to be min
 
         (value, piece_move)
     }
@@ -72,14 +72,84 @@ impl ChessEngine {
                 }
                 
             })
-            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap()).unwrap();
+            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap()).unwrap(); // Here is where the issue is, this is min where it is supposed to be max
 
         (value, piece_move)
+    }
+
+    pub fn next_best_move_minimax_ab(&self, board: &Board, depth: i32) -> Move {
+        println!("Minimax, searching");
+        if board.turn == PieceColor::White {
+            return self.max_ab(board, depth).1;
+        }
+
+        self.min_ab(board, depth).1
+    }
+
+    fn min_ab(&self, board: &Board, depth: i32) -> (f32, Move) {
+
+
+        let (mut min_value, mut min_piece_move) = (f32::INFINITY, None);
+
+        // println!("min");
+        for piece_move in board.get_all_moves_for_turn() {
+            // println!("min_move");
+
+
+            let mut board = board.clone();
+            board.apply_move(&piece_move);
+
+            let eval; 
+            if depth == 0 {
+                println!("eval_min");
+                eval = self.evaluator.infer_probability_of_white_winning(&board);
+            } else {
+                eval = self.max_ab(&board, depth - 1).0;
+            }
+
+            if eval < min_value {
+                min_value = eval;
+                min_piece_move = Some(piece_move);
+            }
+                
+        }
+
+        (min_value, min_piece_move.unwrap())
+    }
+
+    fn max_ab(&self, board: &Board, depth: i32) -> (f32, Move) {
+
+        let (mut max_value, mut max_piece_move) = (-f32::INFINITY, None);
+
+        // println!("max");
+        for piece_move in board.get_all_moves_for_turn() {
+            // println!("max_move");
+
+            let mut board = board.clone();
+            board.apply_move(&piece_move);
+
+            let eval;
+            if depth == 0 {
+                println!("eval_max");
+                eval = self.evaluator.infer_probability_of_white_winning(&board);
+            } else {
+                eval = self.min_ab(&board, depth - 1).0;
+            }
+
+            if eval > max_value {
+                max_value = eval;
+                max_piece_move = Some(piece_move);
+            }
+
+        }
+
+        (max_value, max_piece_move.unwrap())
     }
 
     fn evaluate_move(&self, board: &Board, piece_move: &Move) -> f32 {
         let mut board = board.clone();
         board.apply_move(piece_move);
+        println!("eval_move");
         self.evaluator.infer_probability_of_white_winning(&board)
     }
 
