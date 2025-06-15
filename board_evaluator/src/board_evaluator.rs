@@ -55,7 +55,7 @@ impl BoardEvaluator {
         let output = self.model.forward(batch.transposition_tensor);
 
         let softened = softmax(output.clone(), 1);
-        println!("Output: {}", softened);
+        // println!("Output: {}", softened);
 
         softened.flatten::<1>(0, 1).into_data().to_vec().unwrap()[1] // replace to vec with as slice
         
