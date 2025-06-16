@@ -7,5 +7,6 @@ edition = "2024"
 burn = { version = "~0.17", features = ["train", "wgpu", "vision"] }
 chess_neural_network_training = { path = "../chess_neural_network_training" }
 chess_engine = { path = "../chess_engine" }
+quick_cache = "0.6.14"
 
 

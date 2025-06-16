@@ -1,14 +1,19 @@
 use crate::board_evaluator::BoardEvaluator;
-use chess_engine::{Board, Move, PieceColor};
+use chess_engine::{Board, Move, PieceColor, Transposition};
+use quick_cache::unsync::Cache;
 
 mod board_evaluator;
 
 pub struct ChessEngine {
     evaluator: BoardEvaluator,
+    cache: Cache<Transposition, f32>,
+    leaf_nodes_visited: i32, 
+    cache_hits: i32, 
+    cache_misses: i32,
 }
 
 impl ChessEngine {
-    pub fn next_best_move_shallow(&self, board: &Board) -> Move {
+    pub fn next_best_move_shallow(&mut self, board: &Board) -> Move {
         let possible_moves = board.get_all_moves_for_turn();
         let mut moves: Vec<_> = possible_moves
             .iter()
@@ -26,15 +31,26 @@ impl ChessEngine {
         moves[0].clone().0
     }
 
-    pub fn next_best_move_minimax(&self, board: &Board, depth: i32) -> Move {
-        if board.turn == PieceColor::White {
-            return self.min(board, depth).1; // NOTE TO SELF: I somehow wrote the minimax backwards for the functional solution, so the min is actually the max, and if it is white's turn, you call the max
-        }
+    pub fn next_best_move_minimax(&mut self, board: &Board, depth: i32) -> Move {
+        println!("Minimax, searching");
 
-        self.max(board, depth).1
+        self.leaf_nodes_visited = 0;
+        self.cache_hits = 0;
+        self.cache_misses = 0;
+
+        let output = match board.turn {
+            PieceColor::White => {self.max(board, depth).1}
+            PieceColor::Black => {self.min(board, depth).1}
+        };
+
+        println!("Leaf_nodes_visited: {}", self.leaf_nodes_visited);
+        println!("Cache hits: {}", self.cache_hits);
+        println!("Cache misses: {}", self.cache_misses);
+
+        output
     }
 
-    fn min(&self, board: &Board, depth: i32) -> (f32, Move) {
+    fn min(&mut self, board: &Board, depth: i32) -> (f32, Move) {
     
 
         let (value, piece_move) = board
@@ -45,18 +61,18 @@ impl ChessEngine {
                 board.apply_move(&piece_move);
 
                 if depth == 0 {
-                    (self.evaluator.infer_probability_of_white_winning(&board), piece_move)
+                    (self.infer_probability_of_white_winning_cached(&board), piece_move)
                 } else {
                     (self.max(&board, depth - 1).0, piece_move)
                 }
                 
             })
-            .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap()).unwrap(); // Here is where the issue is, this is max where it is supposed to be min
+            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap()).unwrap(); 
 
         (value, piece_move)
     }
 
-    fn max(&self, board: &Board, depth: i32) -> (f32, Move) {
+    fn max(&mut self, board: &Board, depth: i32) -> (f32, Move) {
 
         let (value, piece_move) = board
             .get_all_moves_for_turn()
@@ -66,27 +82,37 @@ impl ChessEngine {
                 board.apply_move(&piece_move);
 
                 if depth == 0 {
-                    (self.evaluator.infer_probability_of_white_winning(&board), piece_move)
+                    (self.infer_probability_of_white_winning_cached(&board), piece_move)
                 } else {
                     (self.max(&board, depth - 1).0, piece_move)
                 }
                 
             })
-            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap()).unwrap(); // Here is where the issue is, this is min where it is supposed to be max
+            .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap()).unwrap(); 
 
         (value, piece_move)
     }
 
-    pub fn next_best_move_minimax_ab(&self, board: &Board, depth: i32) -> Move {
-        println!("Minimax, searching");
-        if board.turn == PieceColor::White {
-            return self.max_ab(board, depth, -f32::INFINITY, f32::INFINITY).1.unwrap();
-        }
+    pub fn next_best_move_minimax_ab(&mut self, board: &Board, depth: i32) -> Move {
+        println!("Minimax_ab, searching");
 
-        self.min_ab(board, depth, -f32::INFINITY, f32::INFINITY).1.unwrap()
+        self.leaf_nodes_visited = 0; 
+        self.cache_hits = 0;
+        self.cache_misses = 0; 
+        
+        let output = match board.turn {
+            PieceColor::White => {self.max_ab(board, depth, -f32::INFINITY, f32::INFINITY).1.unwrap()}
+            PieceColor::Black => {self.min_ab(board, depth, -f32::INFINITY, f32::INFINITY).1.unwrap()}
+        };
+        
+        println!("Leaf_nodes_visited: {}", self.leaf_nodes_visited);
+        println!("Cache hits: {}", self.cache_hits);
+        println!("Cache misses: {}", self.cache_misses);
+        
+        output
     }
 
-    fn min_ab(&self, board: &Board, depth: i32, alpha: f32, beta: f32) -> (f32, Option<Move>) {
+    fn min_ab(&mut self, board: &Board, depth: i32, alpha: f32, beta: f32) -> (f32, Option<Move>) {
 
         let mut beta = beta; 
         
@@ -102,8 +128,8 @@ impl ChessEngine {
 
             let eval; 
             if depth == 0 {
-                println!("eval_min");
-                eval = self.evaluator.infer_probability_of_white_winning(&board);
+                // println!("eval_min");
+                eval = self.infer_probability_of_white_winning_cached(&board);
             } else {
                 eval = self.max_ab(&board, depth - 1, alpha, min_value).0;
             }
@@ -126,7 +152,7 @@ impl ChessEngine {
         (min_value, min_piece_move)
     }
 
-    fn max_ab(&self, board: &Board, depth: i32,  alpha: f32, beta: f32) -> (f32, Option<Move>) {
+    fn max_ab(&mut self, board: &Board, depth: i32, alpha: f32, beta: f32) -> (f32, Option<Move>) {
         
         let mut alpha = alpha;
 
@@ -142,8 +168,8 @@ impl ChessEngine {
 
             let eval;
             if depth == 0 {
-                println!("eval_max");
-                eval = self.evaluator.infer_probability_of_white_winning(&board);
+                // println!("eval_max");
+                eval = self.infer_probability_of_white_winning_cached(&board);
             } else {
                 eval = self.min_ab(&board, depth - 1, alpha, beta).0;
             }
@@ -165,16 +191,49 @@ impl ChessEngine {
         (max_value, max_piece_move) // to handel checkmates, remove the unwrap and just return the negative infinity value
     }
 
-    fn evaluate_move(&self, board: &Board, piece_move: &Move) -> f32 {
+    fn evaluate_move(&mut self, board: &Board, piece_move: &Move) -> f32 {
         let mut board = board.clone();
         board.apply_move(piece_move);
-        println!("eval_move");
-        self.evaluator.infer_probability_of_white_winning(&board)
+        // println!("eval_move");
+        self.infer_probability_of_white_winning_cached(&board)
+    }
+    
+    fn infer_probability_of_white_winning_cached(&mut self, board: &Board) -> f32 {
+
+        self.leaf_nodes_visited += 1; 
+            
+        let transposition = board.generate_transposition();
+        
+        // *self.cache.get_or_insert_with(&transposition, || { Ok::<f32, MyError>(self.evaluator.infer_probability_of_white_winning(&transposition)) }).unwrap().unwrap()
+        match self.cache.get(&transposition) { // todo: replace with get or insert with
+            Some(value) => {
+                // println!("cache hit");
+                self.cache_hits += 1;
+                *value
+            }
+            None => {
+                self.cache_misses += 1;
+                let value = self.evaluator.infer_probability_of_white_winning(&transposition); 
+                self.cache.insert(transposition, value); 
+                value
+            }
+        }
     }
 
-    pub fn new() -> Self {
+    pub fn new(cache_items_capacity: usize) -> Self {
         Self {
             evaluator: BoardEvaluator::new(),
+            cache: Cache::new(cache_items_capacity),
+            leaf_nodes_visited: 0,
+            cache_hits: 0,
+            cache_misses: 0,
         }
     }
 }
+
+// #[derive(Debug)]
+// enum MyError {
+//     EvaluationFailed,
+//     // other variants
+// }
+

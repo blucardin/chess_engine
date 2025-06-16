@@ -41,6 +41,8 @@ const KNIGHT_SEARCH_OFFSETS: [(isize, isize); 8] = [
     (-1, 2),
 ];
 
+pub type Transposition = [[[bool; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize]; 
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PieceColor {
     Black,
@@ -1227,7 +1229,7 @@ impl Board {
 
     pub fn generate_transposition(
         &self,
-    ) -> [[[bool; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize] {
+    ) -> Transposition {
         let mut output = [[[false; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
 
         // if the main player is black, reverse both enumerations

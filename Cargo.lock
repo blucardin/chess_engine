@@ -94,6 +94,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
 dependencies = [
  "cfg-if",
+ "getrandom 0.3.3",
  "once_cell",
  "version_check",
  "zerocopy",
@@ -1603,6 +1604,7 @@ dependencies = [
  "burn",
  "chess_engine",
  "chess_neural_network_training",
+ "quick_cache",
 ]
 
 [[package]]
@@ -6115,6 +6117,18 @@ name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
+
+[[package]]
+name = "quick_cache"
+version = "0.6.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b450dad8382b1b95061d5ca1eb792081fb082adf48c678791fe917509596d5f"
+dependencies = [
+ "ahash",
+ "equivalent",
+ "hashbrown 0.15.4",
+ "parking_lot",
+]
 
 [[package]]
 name = "quinn"

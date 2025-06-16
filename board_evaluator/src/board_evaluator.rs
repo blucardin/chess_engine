@@ -7,7 +7,7 @@ use burn::prelude::{Backend, Config, Module};
 use burn::record::{CompactRecorder, Recorder};
 use burn::tensor::activation::softmax;
 use burn::tensor::TensorData;
-use chess_engine::Board;
+use chess_engine::{Board, Transposition};
 use chess_neural_network_training::data_batcher::TranspositionBatcher;
 use chess_neural_network_training::model::{Model, ModelRecord};
 use chess_neural_network_training::training::TrainingConfig;
@@ -46,9 +46,9 @@ impl BoardEvaluator {
         }
     }
 
-    pub fn infer_probability_of_white_winning(&self, board : &Board) -> f32 {
+    pub fn infer_probability_of_white_winning(&self, transposition : &Transposition) -> f32 {
         let item = TranspositionItem {
-            transposition: board.generate_transposition(),
+            transposition: *transposition, 
             label: false,
         };
         let batch = self.batcher.batch(vec![item], &self.device);

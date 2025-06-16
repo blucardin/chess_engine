@@ -24,7 +24,7 @@ impl Plugin for Game {
         app.insert_resource(GameSettings {
             computer_player: true,
         });
-        app.insert_non_send_resource(ChessGameResource { board : Board::new(PieceColor::White), engine: ChessEngine::new() });
+        app.insert_non_send_resource(ChessGameResource { board : Board::new(PieceColor::White), engine: ChessEngine::new(10_000) });
         app.insert_state(ComputerTurnState::Player);
         app.add_systems(Startup, setup);
         app.add_systems(
@@ -429,7 +429,9 @@ fn computer_move(
 ) {
     // let computer_move = board_resource.board.find_computer_move(board_resource.board.get_all_moves_for_turn());
     
-    let computer_move = board_resource.engine.next_best_move_minimax_ab(&board_resource.board.clone(), 1);
+    let board = board_resource.board.clone(); 
+    
+    let computer_move = board_resource.engine.next_best_move_minimax_ab(&board, 2);
     
     // println!("computer_move: {:?}", computer_move);
     board_resource.board.apply_move(
