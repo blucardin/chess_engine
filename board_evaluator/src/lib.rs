@@ -80,21 +80,22 @@ impl ChessEngine {
     pub fn next_best_move_minimax_ab(&self, board: &Board, depth: i32) -> Move {
         println!("Minimax, searching");
         if board.turn == PieceColor::White {
-            return self.max_ab(board, depth).1;
+            return self.max_ab(board, depth, -f32::INFINITY, f32::INFINITY).1.unwrap();
         }
 
-        self.min_ab(board, depth).1
+        self.min_ab(board, depth, -f32::INFINITY, f32::INFINITY).1.unwrap()
     }
 
-    fn min_ab(&self, board: &Board, depth: i32) -> (f32, Move) {
+    fn min_ab(&self, board: &Board, depth: i32, alpha: f32, beta: f32) -> (f32, Option<Move>) {
 
-
-        let (mut min_value, mut min_piece_move) = (f32::INFINITY, None);
+        let mut beta = beta; 
+        
+        let mut min_value = f32::INFINITY;
+        let mut min_piece_move = None;
 
         // println!("min");
         for piece_move in board.get_all_moves_for_turn() {
             // println!("min_move");
-
 
             let mut board = board.clone();
             board.apply_move(&piece_move);
@@ -104,22 +105,33 @@ impl ChessEngine {
                 println!("eval_min");
                 eval = self.evaluator.infer_probability_of_white_winning(&board);
             } else {
-                eval = self.max_ab(&board, depth - 1).0;
+                eval = self.max_ab(&board, depth - 1, alpha, min_value).0;
             }
 
             if eval < min_value {
                 min_value = eval;
                 min_piece_move = Some(piece_move);
             }
+
+            if min_value <= alpha { 
+                break;
+            }
+            
+            if min_value < beta {
+                beta = min_value;
+            }
                 
         }
 
-        (min_value, min_piece_move.unwrap())
+        (min_value, min_piece_move)
     }
 
-    fn max_ab(&self, board: &Board, depth: i32) -> (f32, Move) {
+    fn max_ab(&self, board: &Board, depth: i32,  alpha: f32, beta: f32) -> (f32, Option<Move>) {
+        
+        let mut alpha = alpha;
 
-        let (mut max_value, mut max_piece_move) = (-f32::INFINITY, None);
+        let mut max_value = -f32::INFINITY; 
+        let mut max_piece_move = None;
 
         // println!("max");
         for piece_move in board.get_all_moves_for_turn() {
@@ -133,17 +145,24 @@ impl ChessEngine {
                 println!("eval_max");
                 eval = self.evaluator.infer_probability_of_white_winning(&board);
             } else {
-                eval = self.min_ab(&board, depth - 1).0;
+                eval = self.min_ab(&board, depth - 1, alpha, beta).0;
             }
-
-            if eval > max_value {
+            
+            if eval > max_value { 
                 max_value = eval;
                 max_piece_move = Some(piece_move);
             }
 
+            if max_value >= beta {
+                break;
+            }
+            
+            if max_value > alpha {
+                alpha = max_value;
+            }
         }
 
-        (max_value, max_piece_move.unwrap())
+        (max_value, max_piece_move) // to handel checkmates, remove the unwrap and just return the negative infinity value
     }
 
     fn evaluate_move(&self, board: &Board, piece_move: &Move) -> f32 {
