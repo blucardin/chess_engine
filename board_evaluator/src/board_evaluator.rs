@@ -7,7 +7,7 @@ use burn::prelude::{Backend, Config, Module};
 use burn::record::{CompactRecorder, Recorder};
 use burn::tensor::activation::softmax;
 use burn::tensor::TensorData;
-use chess_engine::{Board, Transposition};
+use chess_engine::{Board, PieceColor, Transposition};
 use chess_neural_network_training::data_batcher::TranspositionBatcher;
 use chess_neural_network_training::model::{Model, ModelRecord};
 use chess_neural_network_training::training::TrainingConfig;
@@ -46,7 +46,7 @@ impl BoardEvaluator {
         }
     }
 
-    pub fn infer_probability_of_white_winning(&self, transposition : &Transposition) -> f32 {
+    pub fn infer_probability_of_bottom_winning(&self, transposition : &Transposition) -> f32 {
         let item = TranspositionItem {
             transposition: *transposition, 
             label: false,
@@ -60,5 +60,14 @@ impl BoardEvaluator {
         softened.flatten::<1>(0, 1).into_data().to_vec().unwrap()[1] // replace to vec with as slice
         
         // let predicted = output.argmax(1).flatten::<1>(0, 1).into_scalar();
+    }
+    
+    pub fn convert_probability_of_bottom_winning_to_white_winning(&self, probability_of_bottom_winning:f32, turn_color : &PieceColor) -> f32 {
+        match turn_color {
+            // if the current turn is black, black is on the bottom, so the prob of white winning is (1. - prob_bottom  winning)
+            PieceColor::Black => {1. - probability_of_bottom_winning}
+            // if the current turn is white, white is on the bottom, so prob_white winning = prob_bottom
+            PieceColor::White => {probability_of_bottom_winning} 
+        }
     }
 }

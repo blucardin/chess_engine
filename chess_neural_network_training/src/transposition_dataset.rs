@@ -56,11 +56,15 @@ impl Dataset<TranspositionItem> for BoardDataset {
             new_board.apply_move(*piece_move);
         }
 
-        let white_winner = match winner {
+        let mut white_winner = match winner {
             MovesDone::WhiteWinner => {true}
             MovesDone::BlackWinner => {false}
             MovesDone::MoreMoves => {panic!("Not supposed to happen")}
         };
+        
+        if new_board.turn == PieceColor::Black {
+            white_winner = ! white_winner; 
+        }
 
         Some(TranspositionItem {
             transposition: new_board.generate_transposition(),

@@ -8,6 +8,7 @@ use std::io;
 use std::io::ErrorKind;
 
 struct Looker {
+    total_moves: i64, 
     moves: i64,
     normal_termination: bool,
     white_winner: Option<bool>,
@@ -21,7 +22,7 @@ struct Looker {
 
 impl Looker {
     fn new() -> Result<Looker> {
-        let path = "./training_data/moves_database.db3";
+        let path = "./training_data/moves_database_proper_ids.db3";
         let connection = rusqlite::Connection::open(path)?;
 
         // if !connection.table_exists(None, "games")? {
@@ -32,6 +33,7 @@ impl Looker {
         // }
 
         Ok(Looker {
+            total_moves: 0, 
             moves: 0,
             normal_termination: false,
             white_winner: None,
@@ -39,7 +41,7 @@ impl Looker {
             ended_in_checkmate: false,
             games: 0,
             move_list: Vec::with_capacity(265), // Average number of moves was 65.6802940515, max was 256
-            connection: connection,
+            connection,
         })
     }
 }
@@ -48,6 +50,7 @@ impl Visitor for Looker {
     type Result = usize;
 
     fn begin_game(&mut self) {
+        self.moves = 0; 
         self.normal_termination = false;
         self.white_winner = None;
         self.board = Board::new(PieceColor::White);
@@ -78,7 +81,6 @@ impl Visitor for Looker {
         if !self.normal_termination || self.white_winner.is_none() {
             return Skip(true);
         }
-        self.games += 1;
         Skip(false)
     }
 
@@ -104,12 +106,15 @@ impl Visitor for Looker {
         if !self.ended_in_checkmate { 
             return;
         }
+
+        self.games += 1;
+        self.total_moves += self.moves;
         
         // println!("{}", self.move_list.join(" "));
-        println!("moves parsed: {}", self.moves);
+        println!("moves: {} games: {}", self.total_moves, self.games);
 
         self.connection.execute("INSERT INTO games (id, white_winner, move_list) VALUES (:id, :white_winner, :move_list)", to_params_named(&MovesAndLabelRaw {
-            id: self.moves,
+            id: self.total_moves,
             white_winner: self.white_winner.unwrap(),
             move_list: bincode::encode_to_vec(&self.move_list, CONFIG).unwrap()
         }).unwrap().to_slice().as_slice()).unwrap();
@@ -118,7 +123,7 @@ impl Visitor for Looker {
     fn end_game(&mut self) -> Self::Result {
         // println!("{}, {}", self.games, self.moves);
         // self.moves
-        self.moves as usize
+        self.total_moves as usize
     }
 }
 

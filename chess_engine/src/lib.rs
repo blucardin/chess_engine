@@ -1231,18 +1231,20 @@ impl Board {
         &self,
     ) -> Transposition {
         let mut output = [[[false; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
+        
+        let player_representing_color_1 = self.turn; 
+        
+        // if the player whose turn it is, is not the player that is on the bottom, spin the board. 
+        let spin_board = self.turn != self.player_1_color;
 
-        // if the main player is black, reverse both enumerations
-        let black_bottom = self.player_1_color == PieceColor::Black;
-
-        let iterator = if !black_bottom {
+        let iterator = if !spin_board {
             Either::Left(self.squares.iter().enumerate())
         } else {
             Either::Right(self.squares.iter().rev().enumerate())
         };
 
         for (idx, row) in iterator {
-            let iterator2 = if !black_bottom {
+            let iterator2 = if !spin_board {
                 Either::Left(row.iter().enumerate())
             } else {
                 Either::Right(row.iter().rev().enumerate())
@@ -1254,7 +1256,7 @@ impl Board {
                 match square {
                     Square::Filled(piece) => {
                         let filled = true;
-                        let color = piece.color == PieceColor::White;
+                        let color = piece.color == player_representing_color_1;
                         let mut moved_one_hot = false;
                         let mut en_passant = false;
 
@@ -1262,7 +1264,7 @@ impl Board {
                             PiecePerson::Pawn { first_move } => {
                                 if first_move == Some(self.move_number - 1) {
                                     // if it is on the fourth rank of its color and there is a pawn of opposite color next to it, enable en passant
-                                    let real_coordinates = if !black_bottom {
+                                    let real_coordinates = if !spin_board {
                                         Coordinate {
                                             x: idx as isize,
                                             y: idy as isize,
@@ -1328,8 +1330,8 @@ impl Board {
                             false,
                             false,
                             filled,
-                            color,
-                            !moved_one_hot, // invert moved one hot so that kings only have an extra true value when they are not moved
+                            color, 
+                            moved_one_hot, // invert moved one hot so that kings only have an extra true value when they are not moved // undo this inversion because it gives everything an extra true value
                             en_passant,
                         ];
                         output[idx][idy][piece_person_one_hot] = true;

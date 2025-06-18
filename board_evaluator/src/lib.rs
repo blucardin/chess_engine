@@ -197,25 +197,32 @@ impl ChessEngine {
         // println!("eval_move");
         self.infer_probability_of_white_winning_cached(&board)
     }
-    
-    fn infer_probability_of_white_winning_cached(&mut self, board: &Board) -> f32 {
 
-        self.leaf_nodes_visited += 1; 
-            
+    pub fn infer_probability_of_white_winning_cached(&mut self, board: &Board) -> f32 {
+        self.leaf_nodes_visited += 1;
+
+        let probability_of_bottom_winning = self.evaluator.infer_probability_of_bottom_winning(&board.generate_transposition());
+        self.evaluator.convert_probability_of_bottom_winning_to_white_winning(probability_of_bottom_winning, &board.turn) 
+    }
+    
+    fn infer_probability_of_white_winning_cached_not_done_yet(&mut self, board: &Board) -> f32 { // todo: test this and integrate it
+
+        self.leaf_nodes_visited += 1;
+
         let transposition = board.generate_transposition();
         
         // *self.cache.get_or_insert_with(&transposition, || { Ok::<f32, MyError>(self.evaluator.infer_probability_of_white_winning(&transposition)) }).unwrap().unwrap()
         match self.cache.get(&transposition) { // todo: replace with get or insert with
-            Some(value) => {
+            Some(probability_of_bottom_winning) => {
                 // println!("cache hit");
                 self.cache_hits += 1;
-                *value
+                self.evaluator.convert_probability_of_bottom_winning_to_white_winning(*probability_of_bottom_winning, &board.turn)
             }
             None => {
                 self.cache_misses += 1;
-                let value = self.evaluator.infer_probability_of_white_winning(&transposition); 
-                self.cache.insert(transposition, value); 
-                value
+                let probability_of_bottom_winning = self.evaluator.infer_probability_of_bottom_winning(&transposition);
+                self.cache.insert(transposition, probability_of_bottom_winning);
+                self.evaluator.convert_probability_of_bottom_winning_to_white_winning(probability_of_bottom_winning, &board.turn)
             }
         }
     }

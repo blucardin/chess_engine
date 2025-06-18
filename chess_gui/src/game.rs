@@ -305,6 +305,13 @@ fn mouse_button_input(
 
             // redraw all the pieces
             draw_pieces(&mut commands, &board_resource, &window, &asset_server);
+            
+            // for x in board_resource.board.generate_transposition() {
+            //     println!("{:?}", x);
+            // }
+            
+            let board = board_resource.board.clone();
+            print!("Probability of white winning: {}", board_resource.engine.infer_probability_of_white_winning_cached(&board));
 
             match game_state {
                 GameState::Playing => {}
