@@ -1,52 +1,29 @@
-use chess_engine::move_serialization::{MovesAndLabelRaw, CONFIG};
-use chess_engine::{Board, Move, PieceColor};
 use pgn_reader::{BufferedReader, Outcome, SanPlus, Skip, Visitor};
-use shakmaty::san::Suffix; 
-use serde_rusqlite::*;
+use shakmaty::san::Suffix;
 use std::fs::File;
 use std::io;
-use std::io::ErrorKind;
-use indicatif::ProgressBar;
-
 
 struct Looker {
-    total_moves: u64, 
-    moves: u64,
+    total_moves: i64,
+    moves: i64,
     normal_termination: bool,
     white_winner: Option<bool>,
     ended_in_checkmate: bool,
-    board: Board,
-    games: u64,
-    move_list: Vec<Move>,
-    connection: rusqlite::Connection,
-    bar: ProgressBar,
+    games: i32,
 }
 
 
 impl Looker {
-    fn new(bar: ProgressBar) -> Result<Looker> {
-        let path = "./training_data/moves_database.db3";
-        let connection = rusqlite::Connection::open(path)?;
+    fn new() -> Looker  {
 
-        // if !connection.table_exists(None, "games")? {
-        connection.execute(
-            "CREATE TABLE games (id INT PRIMARY KEY, white_winner BOOL, move_list BLOB)",
-            [],
-        )?;
-        // }
-
-        Ok(Looker {
-            total_moves: 0, 
+        Looker {
+            total_moves: 0,
             moves: 0,
             normal_termination: false,
             white_winner: None,
-            board: Board::new(PieceColor::White),
             ended_in_checkmate: false,
             games: 0,
-            move_list: Vec::with_capacity(265), // Average number of moves was 65.6802940515, max was 256
-            connection,
-            bar: bar,
-        })
+        }
     }
 }
 
@@ -54,12 +31,10 @@ impl Visitor for Looker {
     type Result = usize;
 
     fn begin_game(&mut self) {
-        self.moves = 0; 
+        self.moves = 0;
         self.normal_termination = false;
         self.white_winner = None;
-        self.board = Board::new(PieceColor::White);
         self.ended_in_checkmate = false;
-        self.move_list.clear();
     }
 
     fn header(&mut self, key: &[u8], value: pgn_reader::RawHeader<'_>) {
@@ -93,10 +68,7 @@ impl Visitor for Looker {
         if let Some(Suffix::Checkmate) = san_plus.suffix {
             self.ended_in_checkmate = true
         }
-
-        let piece_move = self.board.move_from_san(san_plus.san);
-        self.move_list.push(piece_move);
-        // println!("{}", self.board);
+        
         self.moves += 1;
 
     }
@@ -106,24 +78,14 @@ impl Visitor for Looker {
     }
 
     fn outcome(&mut self, _outcome: Option<Outcome>) {
-        
-        if !self.ended_in_checkmate { 
+
+        if !self.ended_in_checkmate {
             return;
         }
 
         self.games += 1;
         self.total_moves += self.moves;
         
-        // println!("{}", self.move_list.join(" "));
-        // println!("moves: {} games: {}", self.total_moves, self.games);
-        self.bar.inc(self.moves);
-         
-
-        self.connection.execute("INSERT INTO games (id, white_winner, move_list) VALUES (:id, :white_winner, :move_list)", to_params_named(&MovesAndLabelRaw {
-            id: self.total_moves as i64,
-            white_winner: self.white_winner.unwrap(),
-            move_list: bincode::encode_to_vec(&self.move_list, CONFIG).unwrap()
-        }).unwrap().to_slice().as_slice()).unwrap();
     }
 
     fn end_game(&mut self) -> Self::Result {
@@ -158,10 +120,7 @@ fn main() -> io::Result<()> {
     let file = File::open("training_data/lichess_db_standard_rated_2013-01.pgn")?;
     let mut reader = BufferedReader::new(file);
 
-    let bar = ProgressBar::new(2393673);
-    
-    let mut counter = Looker::new(bar)
-        .map_err(|err| io::Error::new(ErrorKind::ConnectionRefused, "Database error"))?;
+    let mut counter = Looker::new();
 
     let mut total_moves = 0;
     while let Ok(Some(moves)) = reader.read_game(&mut counter) {

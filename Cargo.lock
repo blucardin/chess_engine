@@ -2178,6 +2178,7 @@ dependencies = [
  "chess_engine",
  "criterion",
  "gnuplot",
+ "indicatif",
  "pgn-reader",
  "r2d2",
  "r2d2_sqlite",
