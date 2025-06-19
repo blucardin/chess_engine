@@ -1,6 +1,6 @@
 use std::path::PathBuf;
-use burn::backend::{Autodiff, Wgpu};
-use burn::backend::wgpu::WgpuDevice;
+use burn::backend::{Autodiff, Cuda};
+use burn::backend::cuda::CudaDevice;
 use burn::data::dataloader::batcher::Batcher;
 use burn::data::dataset::{Dataset, SqliteDatasetError};
 use burn::prelude::{Backend, Config, Module};
@@ -34,11 +34,11 @@ pub fn infer<B: Backend>(model: &Model<B>, device: &B::Device, item: Transpositi
 
 fn main() {
 
-    type MyBackend = Wgpu<f32, i32>;
+    type MyBackend = Cuda<f32, i32>;
 
-    let device = burn::backend::wgpu::WgpuDevice::default();
+    let device = burn::backend::cuda::CudaDevice::default();
     // println!("CUDA Device: {}", device.index);
-    let artifact_dir = "/Users/sam/RustroverProjects/chess/model";
+    let artifact_dir = "C:\\Users\\bluca\\RustroverProjects\\chess_engine\\conv_model_sm";
 
     let config = TrainingConfig::load(format!("{artifact_dir}/config.json"))
         .expect("Config should exist for the model; run train first");

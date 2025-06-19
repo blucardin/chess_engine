@@ -198,14 +198,14 @@ impl ChessEngine {
         self.infer_probability_of_white_winning_cached(&board)
     }
 
-    pub fn infer_probability_of_white_winning_cached(&mut self, board: &Board) -> f32 {
-        self.leaf_nodes_visited += 1;
+    // pub fn infer_probability_of_white_winning_cached(&mut self, board: &Board) -> f32 {
+    //     self.leaf_nodes_visited += 1;
+    // 
+    //     let probability_of_bottom_winning = self.evaluator.infer_probability_of_bottom_winning(&board.generate_transposition());
+    //     self.evaluator.convert_probability_of_bottom_winning_to_white_winning(probability_of_bottom_winning, &board.turn) 
+    // }
 
-        let probability_of_bottom_winning = self.evaluator.infer_probability_of_bottom_winning(&board.generate_transposition());
-        self.evaluator.convert_probability_of_bottom_winning_to_white_winning(probability_of_bottom_winning, &board.turn) 
-    }
-    
-    fn infer_probability_of_white_winning_cached_not_done_yet(&mut self, board: &Board) -> f32 { // todo: test this and integrate it
+    pub fn infer_probability_of_white_winning_cached(&mut self, board: &Board) -> f32 { // todo: test this and integrate it
 
         self.leaf_nodes_visited += 1;
 

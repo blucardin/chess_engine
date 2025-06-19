@@ -24,7 +24,7 @@ impl Plugin for Game {
         app.insert_resource(GameSettings {
             computer_player: true,
         });
-        app.insert_non_send_resource(ChessGameResource { board : Board::new(PieceColor::White), engine: ChessEngine::new(10_000) });
+        app.insert_non_send_resource(ChessGameResource { board : Board::new(PieceColor::White), engine: ChessEngine::new(100_000) });
         app.insert_state(ComputerTurnState::Player);
         app.add_systems(Startup, setup);
         app.add_systems(
@@ -311,7 +311,7 @@ fn mouse_button_input(
             // }
             
             let board = board_resource.board.clone();
-            print!("Probability of white winning: {}", board_resource.engine.infer_probability_of_white_winning_cached(&board));
+            println!("Probability of white winning: {}", board_resource.engine.infer_probability_of_white_winning_cached(&board));
 
             match game_state {
                 GameState::Playing => {}
@@ -438,7 +438,7 @@ fn computer_move(
     
     let board = board_resource.board.clone(); 
     
-    let computer_move = board_resource.engine.next_best_move_minimax_ab(&board, 2);
+    let computer_move = board_resource.engine.next_best_move_minimax_ab(&board, 3);
     
     // println!("computer_move: {:?}", computer_move);
     board_resource.board.apply_move(
