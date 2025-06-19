@@ -7,9 +7,9 @@ use std::fs::File;
 use std::io;
 use std::io::ErrorKind;
 use indicatif::ProgressBar;
+use r2d2_sqlite::rusqlite::{Connection, Statement};
 
-
-struct Looker {
+struct Looker<'a> {
     total_moves: u64, 
     moves: u64,
     normal_termination: bool,
@@ -18,16 +18,14 @@ struct Looker {
     board: Board,
     games: u64,
     move_list: Vec<Move>,
-    connection: rusqlite::Connection,
     bar: ProgressBar,
+    statement: Statement<'a>
 }
 
 
-impl Looker {
-    fn new(bar: ProgressBar) -> Result<Looker> {
-        let path = "./training_data/moves_database.db3";
-        let connection = rusqlite::Connection::open(path)?;
-
+impl Looker<'_> {
+    fn new(bar: ProgressBar, connection: &Connection) -> Result<Looker> {
+       
         // if !connection.table_exists(None, "games")? {
         connection.execute(
             "CREATE TABLE games (id INT PRIMARY KEY, white_winner BOOL, move_list BLOB)",
@@ -44,13 +42,16 @@ impl Looker {
             ended_in_checkmate: false,
             games: 0,
             move_list: Vec::with_capacity(265), // Average number of moves was 65.6802940515, max was 256
-            connection,
             bar: bar,
+            statement: connection
+                .prepare(
+                    "INSERT INTO games (id, white_winner, move_list) VALUES (:id, :white_winner, :move_list)",
+                )?,
         })
     }
 }
 
-impl Visitor for Looker {
+impl Visitor for Looker<'_> {
     type Result = usize;
 
     fn begin_game(&mut self) {
@@ -119,7 +120,7 @@ impl Visitor for Looker {
         self.bar.inc(self.moves);
          
 
-        self.connection.execute("INSERT INTO games (id, white_winner, move_list) VALUES (:id, :white_winner, :move_list)", to_params_named(&MovesAndLabelRaw {
+        self.statement.execute(to_params_named(&MovesAndLabelRaw {
             id: self.total_moves as i64,
             white_winner: self.white_winner.unwrap(),
             move_list: bincode::encode_to_vec(&self.move_list, CONFIG).unwrap()
@@ -155,12 +156,16 @@ fn main() -> io::Result<()> {
 
     // let mut reader = BufferedReader::new_cursor(&pgn[..]);
 
-    let file = File::open("training_data/lichess_db_standard_rated_2013-01.pgn")?;
+    let file = File::open("training_data/lg/lichess_db_standard_rated_2016-03.pgn")?;
     let mut reader = BufferedReader::new(file);
 
-    let bar = ProgressBar::new(2393673);
+    let bar = ProgressBar::new(101068477);
+
+    let path = "./training_data/moves_database_lg.db3";
+    let connection = rusqlite::Connection::open(path)
+        .map_err(|err| io::Error::new(ErrorKind::ConnectionRefused, "Database error"))?;
     
-    let mut counter = Looker::new(bar)
+    let mut counter = Looker::new(bar, &connection)
         .map_err(|err| io::Error::new(ErrorKind::ConnectionRefused, "Database error"))?;
 
     let mut total_moves = 0;

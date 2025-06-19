@@ -117,7 +117,7 @@ fn main() -> io::Result<()> {
 
     // let mut reader = BufferedReader::new_cursor(&pgn[..]);
 
-    let file = File::open("training_data/lichess_db_standard_rated_2013-01.pgn")?;
+    let file = File::open("training_data/lg/lichess_db_standard_rated_2016-03.pgn")?;
     let mut reader = BufferedReader::new(file);
 
     let mut counter = Looker::new();
