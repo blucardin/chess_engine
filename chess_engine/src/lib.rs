@@ -44,9 +44,10 @@ const KNIGHT_SEARCH_OFFSETS: [(isize, isize); 8] = [
 pub type Transposition = [[[bool; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize]; 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(i8)]
 pub enum PieceColor {
-    Black,
-    White,
+    Black = -1,
+    White = 1,
 }
 
 impl PieceColor {
@@ -66,13 +67,14 @@ impl PieceColor {
 }
 
 #[derive(Encode, Decode, Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(i8)]
 pub enum PiecePerson {
-    Pawn { first_move: Option<i32> },
-    Rook { moved: bool },
-    Knight,
-    Bishop,
-    Queen,
-    King { moved: bool },
+    Pawn { first_move: Option<i32> } = 1,
+    Rook { moved: bool } = 3,
+    Knight = 2,
+    Bishop = 4,
+    Queen = 5,
+    King { moved: bool } = 6,
 }
 
 impl PiecePerson {
@@ -129,6 +131,17 @@ impl PiecePerson {
             PiecePerson::Bishop => 3,
             PiecePerson::Queen => 4,
             PiecePerson::King { .. } => 5,
+        }
+    }
+
+    fn value(&self) -> i8 {
+        match self {
+            PiecePerson::Pawn { .. } => 1,
+            PiecePerson::Rook { .. } => 4,
+            PiecePerson::Knight => 2,
+            PiecePerson::Bishop => 3,
+            PiecePerson::Queen => 5,
+            PiecePerson::King { .. } => i8::MAX,
         }
     }
 
@@ -1337,6 +1350,18 @@ impl Board {
                         output[idx][idy][piece_person_one_hot] = true;
                     }
                     Square::Empty | Square::Boundary => {}
+                }
+            }
+        }
+        output
+    }
+    
+    pub fn natural_score(&self) -> i8 {
+        let mut output = 0; 
+        for (idx, row) in self.squares.iter().enumerate() {
+            for square in row.iter(){
+                if let Square::Filled(piece) = square {
+                    output += (piece.color as i8) * (piece.piece_person.value())
                 }
             }
         }

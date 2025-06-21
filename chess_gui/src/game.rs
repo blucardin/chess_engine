@@ -310,8 +310,6 @@ fn mouse_button_input(
             //     println!("{:?}", x);
             // }
             
-            let board = board_resource.board.clone();
-            println!("Probability of white winning: {}", board_resource.engine.infer_probability_of_white_winning_cached(&board));
 
             match game_state {
                 GameState::Playing => {}
@@ -435,10 +433,13 @@ fn computer_move(
     mut next_computer_turn_state: ResMut<NextState<ComputerTurnState>>,
 ) {
     // let computer_move = board_resource.board.find_computer_move(board_resource.board.get_all_moves_for_turn());
+
+    // let board = board_resource.board.clone();
+    // println!("Probability of white winning: {}", board_resource.engine.infer_probability_of_white_winning_cached(&board));
     
     let board = board_resource.board.clone(); 
     
-    let computer_move = board_resource.engine.next_best_move_minimax_ab(&board, 3);
+    let computer_move = board_resource.engine.next_best_move_natural_minimax_ab(&board, 1);
     
     // println!("computer_move: {:?}", computer_move);
     board_resource.board.apply_move(

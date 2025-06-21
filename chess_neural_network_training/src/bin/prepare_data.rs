@@ -161,12 +161,12 @@ fn main() -> io::Result<()> {
 
     let bar = ProgressBar::new(101068477);
 
-    let path = "./training_data/moves_database_lg.db3";
+    let path = "training_data/moves_database_lg.db3";
     let connection = rusqlite::Connection::open(path)
-        .map_err(|err| io::Error::new(ErrorKind::ConnectionRefused, "Database error"))?;
+        .map_err(|err| io::Error::new(ErrorKind::ConnectionRefused, "Database error".to_owned() + &*err.to_string()))?;
     
     let mut counter = Looker::new(bar, &connection)
-        .map_err(|err| io::Error::new(ErrorKind::ConnectionRefused, "Database error"))?;
+        .map_err(|err| io::Error::new(ErrorKind::ConnectionRefused, "Database error".to_owned() + &*err.to_string()))?;
 
     let mut total_moves = 0;
     while let Ok(Some(moves)) = reader.read_game(&mut counter) {

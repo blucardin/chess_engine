@@ -1,6 +1,6 @@
 
-use burn::backend::{Cuda};
-use burn::backend::cuda::CudaDevice;
+use burn::backend::{Wgpu};
+use burn::backend::wgpu::WgpuDevice;
 use burn::data::dataloader::batcher::Batcher;
 use burn::data::dataset::Dataset;
 use burn::prelude::{Backend, Config, Module};
@@ -13,10 +13,10 @@ use chess_neural_network_training::model::{Model, ModelRecord};
 use chess_neural_network_training::training::TrainingConfig;
 use chess_neural_network_training::transposition_dataset::TranspositionItem;
 
-type MyBackend = Cuda<f32, i32>;
+type MyBackend = Wgpu<f32, i32>;
 
 pub struct BoardEvaluator {
-    device: CudaDevice,
+    device: WgpuDevice,
     model: Model<MyBackend>,
     batcher: TranspositionBatcher,
 }
@@ -24,9 +24,9 @@ pub struct BoardEvaluator {
 impl BoardEvaluator {
     pub fn new() -> Self {
 
-        let device = CudaDevice::default();
+        let device = WgpuDevice::default();
         // println!("CUDA Device: {}", device.index);
-        let artifact_dir = "C:\\Users\\bluca\\RustroverProjects\\chess_engine\\conv_model_sm";
+        let artifact_dir = "/Users/sam/RustroverProjects/chess/conv_model_sm";
 
         let config = TrainingConfig::load(format!("{artifact_dir}/config.json"))
             .expect("Config should exist for the model; run train first");
