@@ -348,7 +348,7 @@ impl ChessEngine {
         let output : Move  = match board.turn {
             PieceColor::Black => {
                 
-                let mut min_value = i8::MAX;
+                let mut min_value = f32::INFINITY;
                 let mut min_move = None;
 
                 // println!("min");
@@ -369,7 +369,7 @@ impl ChessEngine {
                         self.leaf_nodes_visited += 1;
 
                     } else {
-                        eval = self.max_natural_ab(&board, depth - 1, i8::MIN, min_value);
+                        eval = self.max_natural_ab(&board, depth - 1, -f32::INFINITY, min_value);
                     }
                     // for x in 0..depth {
                     //     print!("\t");
@@ -388,13 +388,13 @@ impl ChessEngine {
             }
             PieceColor::White => {
 
-                let mut max_value = i8::MIN;
+                let mut max_value = -f32::INFINITY;
                 let mut max_move = None;
 
                 // println!("max");
                 for piece_move in board.get_all_moves_for_turn() {
                     // println!("max_move");
-
+                    // 
                     // for x in 0..depth {
                     //     print!("\t");
                     // }
@@ -409,7 +409,7 @@ impl ChessEngine {
                         eval = board.natural_score();
                         self.leaf_nodes_visited += 1;
                     } else {
-                        eval = self.min_natural_ab(&board, depth - 1, max_value, i8::MAX);
+                        eval = self.min_natural_ab(&board, depth - 1, max_value, f32::INFINITY);
                     }
 
                     // for x in 0..depth {
@@ -425,7 +425,7 @@ impl ChessEngine {
                     // alpha/beta cut here is not possible because we are at root node
                 }
                 
-                max_move.unwrap()
+                max_move.unwrap() // it put me in checkmate, but called computer function again, causing it to error out here. 
             }
         };
         
@@ -437,11 +437,11 @@ impl ChessEngine {
         
     }
 
-    fn min_natural_ab(&mut self, board: &Board, depth: i32, alpha: i8, beta: i8) -> i8 {
+    fn min_natural_ab(&mut self, board: &Board, depth: i32, alpha: f32, beta: f32) -> f32 {
 
         let mut beta = beta;
 
-        let mut min_value = i8::MAX;
+        let mut min_value = f32::INFINITY;
 
         // println!("min");
         for piece_move in board.get_all_moves_for_turn() {
@@ -488,11 +488,11 @@ impl ChessEngine {
         min_value
     }
 
-    fn max_natural_ab(&mut self, board: &Board, depth: i32, alpha: i8, beta: i8) -> i8 {
+    fn max_natural_ab(&mut self, board: &Board, depth: i32, alpha: f32, beta: f32) -> f32 {
 
         let mut alpha = alpha;
 
-        let mut max_value = i8::MIN;
+        let mut max_value = -f32::INFINITY;
 
         // println!("max");
         for piece_move in board.get_all_moves_for_turn() {

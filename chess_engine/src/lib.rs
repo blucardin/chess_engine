@@ -41,13 +41,14 @@ const KNIGHT_SEARCH_OFFSETS: [(isize, isize); 8] = [
     (-1, 2),
 ];
 
+const BOARD_WEIGHTS: [f32; 8] = [0., 0.3, 0.6, 0.9, 0.9, 0.6, 0.3, 0.];
+
 pub type Transposition = [[[bool; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize]; 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(i8)]
 pub enum PieceColor {
-    Black = -1,
-    White = 1,
+    Black,
+    White,
 }
 
 impl PieceColor {
@@ -134,14 +135,14 @@ impl PiecePerson {
         }
     }
 
-    fn value(&self) -> i8 {
+    fn value(&self) -> f32 {
         match self {
-            PiecePerson::Pawn { .. } => 1,
-            PiecePerson::Rook { .. } => 4,
-            PiecePerson::Knight => 2,
-            PiecePerson::Bishop => 3,
-            PiecePerson::Queen => 5,
-            PiecePerson::King { .. } => i8::MAX,
+            PiecePerson::Pawn { .. } => 1.,
+            PiecePerson::Rook { .. } => 4.,
+            PiecePerson::Knight => 2.,
+            PiecePerson::Bishop => 3.,
+            PiecePerson::Queen => 5.,
+            PiecePerson::King { .. } => panic!("King has no value"),
         }
     }
 
@@ -1356,15 +1357,38 @@ impl Board {
         output
     }
     
-    pub fn natural_score(&self) -> i8 {
-        let mut output = 0; 
+    pub fn natural_score(&self) -> f32 {
+        let mut output :f32 = 0.;
+        let mut black_king_found = false; 
+        let mut white_king_found = false;
         for (idx, row) in self.squares.iter().enumerate() {
-            for square in row.iter(){
+            for (idy, square) in row.iter().enumerate() {
                 if let Square::Filled(piece) = square {
-                    output += (piece.color as i8) * (piece.piece_person.value())
+                    
+                    if let PiecePerson::King { .. } = piece.piece_person {
+                        match piece.color {
+                            PieceColor::Black => {black_king_found = true}
+                            PieceColor::White => {white_king_found = true}
+                        }
+                    } else {
+                        let value = piece.piece_person.value() + BOARD_WEIGHTS[idx] + BOARD_WEIGHTS[idy];
+                        // println!("value:{}", value);
+                        output += match piece.color {
+                            PieceColor::Black => { -value }
+                            PieceColor::White => { value }
+                        }
+                    }
                 }
             }
         }
+        
+        if !black_king_found {
+            return f32::INFINITY;
+        } else if !white_king_found {
+            return -f32::INFINITY;
+        }
+        
+        // println!("natural score:{}", output); 
         output
     }
 
