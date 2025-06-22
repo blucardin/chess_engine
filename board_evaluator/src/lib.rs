@@ -345,26 +345,90 @@ impl ChessEngine {
         self.cache_hits = 0;
         self.cache_misses = 0;
 
-        let moves_and_values = board.get_all_moves_for_turn()// todo rewrite this with alpha-beta on the first ply
-            .into_iter()
-            .map(|piece_move| {
-                let mut new_board = board.clone();
-                new_board.apply_move(&piece_move);
+        let output : Move  = match board.turn {
+            PieceColor::Black => {
                 
-                let output = match board.turn {
-                    PieceColor::White => {self.max_natural_ab(&new_board, depth, i8::MIN, i8::MAX)}
-                    PieceColor::Black => {self.min_natural_ab(&new_board, depth, i8::MIN, i8::MAX)}
-                };
-                
-                (piece_move, output)
-            });
+                let mut min_value = i8::MAX;
+                let mut min_move = None;
 
-        
-        let output = match board.turn {
-            PieceColor::White => {moves_and_values.max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap().0.clone()}
-            PieceColor::Black => {moves_and_values.min_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap().0.clone()}
+                // println!("min");
+                for piece_move in board.get_all_moves_for_turn() {
+                    // println!("min_move");
+                    // for x in 0..depth {
+                    //     print!("\t");
+                    // }
+                    // println!("{:?}", piece_move);
+
+                    let mut board = board.clone();
+                    board.apply_move(&piece_move);
+
+                    let eval;
+                    if depth == 0 {
+                        // println!("eval_min");
+                        eval = board.natural_score();
+                        self.leaf_nodes_visited += 1;
+
+                    } else {
+                        eval = self.max_natural_ab(&board, depth - 1, i8::MIN, min_value);
+                    }
+                    // for x in 0..depth {
+                    //     print!("\t");
+                    // }
+                    // println!("{:?}", eval);
+
+                    if eval < min_value {
+                        min_value = eval;
+                        min_move = Some(piece_move);
+                    }
+
+                    // alpha/beta cut here is not possible because we are at root node
+                }
+
+                min_move.unwrap()
+            }
+            PieceColor::White => {
+
+                let mut max_value = i8::MIN;
+                let mut max_move = None;
+
+                // println!("max");
+                for piece_move in board.get_all_moves_for_turn() {
+                    // println!("max_move");
+
+                    // for x in 0..depth {
+                    //     print!("\t");
+                    // }
+                    // println!("{:?}", piece_move);
+
+                    let mut board = board.clone();
+                    board.apply_move(&piece_move);
+
+                    let eval;
+                    if depth == 0 {
+                        // println!("eval_max");
+                        eval = board.natural_score();
+                        self.leaf_nodes_visited += 1;
+                    } else {
+                        eval = self.min_natural_ab(&board, depth - 1, max_value, i8::MAX);
+                    }
+
+                    // for x in 0..depth {
+                    //     print!("\t");
+                    // }
+                    // println!("{:?}", eval);
+
+                    if eval > max_value {
+                        max_value = eval;
+                        max_move = Some(piece_move);
+                    }
+                    
+                    // alpha/beta cut here is not possible because we are at root node
+                }
+                
+                max_move.unwrap()
+            }
         };
-
+        
         println!("Leaf_nodes_visited: {}", self.leaf_nodes_visited);
         println!("Cache hits: {}", self.cache_hits);
         println!("Cache misses: {}", self.cache_misses);
@@ -383,6 +447,11 @@ impl ChessEngine {
         for piece_move in board.get_all_moves_for_turn() {
             // println!("min_move");
 
+            // for x in 0..depth {
+            //     print!("\t");
+            // }
+            // println!("{:?}", piece_move);
+
             let mut board = board.clone();
             board.apply_move(&piece_move);
 
@@ -396,6 +465,11 @@ impl ChessEngine {
                 eval = self.max_natural_ab(&board, depth - 1, alpha, beta);
 
             }
+
+            // for x in 0..depth {
+            //     print!("\t");
+            // }
+            // println!("{:?}", eval);
 
             if eval < min_value {
                 min_value = eval;
@@ -424,6 +498,11 @@ impl ChessEngine {
         for piece_move in board.get_all_moves_for_turn() {
             // println!("max_move");
 
+            // for x in 0..depth {
+            //     print!("\t");
+            // }
+            // println!("{:?}", piece_move);
+
             let mut board = board.clone();
             board.apply_move(&piece_move);
 
@@ -435,6 +514,11 @@ impl ChessEngine {
             } else {
                 eval = self.min_natural_ab(&board, depth - 1, alpha, beta);
             }
+
+            // for x in 0..depth {
+            //     print!("\t");
+            // }
+            // println!("{:?}", eval);
 
             if eval > max_value {
                 max_value = eval;
