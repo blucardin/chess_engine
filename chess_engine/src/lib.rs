@@ -8,7 +8,10 @@ use std::{fmt, ops};
 extern crate either;
 use either::Either;
 
-use pgn_reader::{CastlingSide, File, Rank, Role, San , SanPlus};
+#[macro_use]
+extern crate approx;
+
+use pgn_reader::{CastlingSide, File, Rank, Role, San, SanPlus};
 // 0.9.0
 
 pub const BOARD_TILE_DIM: isize = 8;
@@ -43,7 +46,7 @@ const KNIGHT_SEARCH_OFFSETS: [(isize, isize); 8] = [
 
 const BOARD_WEIGHTS: [f32; 8] = [0., 0.3, 0.6, 0.9, 0.9, 0.6, 0.3, 0.];
 
-pub type Transposition = [[[bool; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize]; 
+pub type Transposition = [[[bool; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PieceColor {
@@ -64,6 +67,13 @@ impl PieceColor {
             PieceColor::Black => "black",
             PieceColor::White => "white",
         })
+    }
+
+    pub fn convert_signed(&self, value: f32) -> f32 {
+        match self {
+            PieceColor::Black => -value,
+            PieceColor::White => value,
+        }
     }
 }
 
@@ -212,6 +222,12 @@ impl Coordinate {
 
     fn to_text(&self) -> String {
         format!("{}{}", self.x, self.y)
+    }
+
+    pub fn value(&self, piece_person: PiecePerson, color: PieceColor) -> f32 {
+        color.convert_signed(
+            piece_person.value() + BOARD_WEIGHTS[self.x as usize] + BOARD_WEIGHTS[self.y as usize],
+        )
     }
 }
 
@@ -922,7 +938,7 @@ impl Board {
                             y: row_to_act,
                         };
 
-                        let new_rook_piece = match self.squares[rooks_position.x as usize]
+                        let new_rook_piece = match self.squares[rooks_position.x as usize] // todo: replace this with just setting the rooks piece because it is faster
                             [rooks_position.y as usize]
                         {
                             Square::Filled(Piece {
@@ -996,8 +1012,7 @@ impl Board {
         self.move_number += 1;
     }
 
-    pub fn move_from_san(&mut self, san: San) -> Move {
-
+    pub fn move_from_san(&self, san: San) -> Move {
         match san {
             San::Normal {
                 role,
@@ -1104,7 +1119,6 @@ impl Board {
 
                 match move_to_apply {
                     Some(piece_move) => {
-                        self.apply_move(piece_move);
                         piece_move.clone()
                     }
                     None => {
@@ -1131,8 +1145,7 @@ impl Board {
                         CastlingSide::QueenSide => Side::QueenSide,
                     },
                 };
-                self.apply_move(&piece_move);
-                piece_move.clone()
+                piece_move
             }
             San::Put { .. } => {
                 panic!("The san reader returned a san with a put.")
@@ -1241,14 +1254,12 @@ impl Board {
         game_state
     }
 
-    pub fn generate_transposition(
-        &self,
-    ) -> Transposition {
+    pub fn generate_transposition(&self) -> Transposition {
         let mut output = [[[false; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
-        
-        let player_representing_color_1 = self.turn; 
-        
-        // if the player whose turn it is, is not the player that is on the bottom, spin the board. 
+
+        let player_representing_color_1 = self.turn;
+
+        // if the player whose turn it is, is not the player that is on the bottom, spin the board.
         let spin_board = self.turn != self.player_1_color;
 
         let iterator = if !spin_board {
@@ -1344,7 +1355,7 @@ impl Board {
                             false,
                             false,
                             filled,
-                            color, 
+                            color,
                             moved_one_hot, // invert moved one hot so that kings only have an extra true value when they are not moved // undo this inversion because it gives everything an extra true value
                             en_passant,
                         ];
@@ -1356,40 +1367,167 @@ impl Board {
         }
         output
     }
-    
+
     pub fn natural_score(&self) -> f32 {
-        let mut output :f32 = 0.;
-        let mut black_king_found = false; 
+        let mut output: f32 = 0.;
+        let mut black_king_found = false;
         let mut white_king_found = false;
         for (idx, row) in self.squares.iter().enumerate() {
             for (idy, square) in row.iter().enumerate() {
                 if let Square::Filled(piece) = square {
-                    
                     if let PiecePerson::King { .. } = piece.piece_person {
                         match piece.color {
-                            PieceColor::Black => {black_king_found = true}
-                            PieceColor::White => {white_king_found = true}
+                            PieceColor::Black => black_king_found = true,
+                            PieceColor::White => white_king_found = true,
                         }
                     } else {
-                        let value = piece.piece_person.value() + BOARD_WEIGHTS[idx] + BOARD_WEIGHTS[idy];
+                        let value =
+                            piece.piece_person.value() + BOARD_WEIGHTS[idx] + BOARD_WEIGHTS[idy];
                         // println!("value:{}", value);
-                        output += match piece.color {
-                            PieceColor::Black => { -value }
-                            PieceColor::White => { value }
-                        }
+                        output += piece.color.convert_signed(value);
                     }
                 }
             }
         }
-        
+
         if !black_king_found {
             return f32::INFINITY;
         } else if !white_king_found {
             return -f32::INFINITY;
         }
-        
-        // println!("natural score:{}", output); 
+
+        // println!("natural score:{}", output);
         output
+    }
+
+    pub fn score_delta(&self, piece_move: &Move) -> f32 {
+        match piece_move {
+            Move::Regular {
+                initial_position,
+                final_position,
+                move_type,
+            } => {
+                if let Square::Filled(piece) =
+                    self.squares[initial_position.x as usize][initial_position.y as usize]
+                {
+                    let mut output = 0.;
+
+                    if let MoveType::Take = move_type {
+                        if let Square::Filled(taken_piece) =
+                            self.squares[final_position.x as usize][final_position.y as usize]
+                        {
+                            if let PiecePerson::King { .. } = taken_piece.piece_person {
+                                return match taken_piece.color {
+                                    PieceColor::Black => {
+                                        f32::INFINITY // if we captured a black king, white is now infinity
+                                    }
+                                    PieceColor::White => {
+                                        -f32::INFINITY // if we captured a black king, white is now infinity
+                                    }
+                                };
+                            } else {
+                                output -= final_position
+                                    .value(taken_piece.piece_person, taken_piece.color);
+                            }
+                        } else {
+                            panic!("Move is take, but there is no piece to take.")
+                        }
+                    }
+
+                    if let PiecePerson::King { .. } = piece.piece_person {
+                        // if the king has been moved, there is no change in board value
+                        return output; 
+                    }
+
+                    output -= initial_position.value(piece.piece_person, piece.color);
+                    output += final_position.value(piece.piece_person, piece.color);
+
+                    output
+                } else {
+                    panic!("Initial square not filled. {self}, {:?}", piece_move)
+                }
+            }
+            Move::Promote {
+                initial_position,
+                final_position,
+                move_type,
+                piece_person: new_piece_person,
+            } => {
+                let mut output = 0.;
+
+                if let MoveType::Take = move_type {
+                    if let Square::Filled(taken_piece) =
+                        self.squares[final_position.x as usize][final_position.y as usize]
+                    {
+                        if let PiecePerson::King { .. } = taken_piece.piece_person {
+                            return match taken_piece.color {
+                                PieceColor::Black => {
+                                    f32::INFINITY // if we captured a black king, white is now infinity
+                                }
+                                PieceColor::White => {
+                                    -f32::INFINITY // if we captured a black king, white is now infinity
+                                }
+                            };
+                        } else {
+                            output -=
+                                final_position.value(taken_piece.piece_person, taken_piece.color);
+                        }
+                    } else {
+                        panic!("Move is take, but there is no piece to take.")
+                    }
+                }
+
+                // self.turn is the same as the pawn's color
+                output -= initial_position.value(PiecePerson::Pawn { first_move: None }, self.turn);
+                output += final_position.value(*new_piece_person, self.turn);
+
+                output
+            }
+            Move::Castle { side } => {
+                let row_to_act: isize = if self.pawn_going_up() {
+                    BOARD_TILE_DIM - 1
+                } else {
+                    0
+                };
+
+                let rooks_initial_position;
+                let rooks_final_position;
+
+                match side {
+                    Side::KingsSide => {
+                        // final position of rook, subtract initial position of rook
+                        rooks_initial_position = Coordinate {
+                            x: BOARD_TILE_DIM - 1,
+                            y: row_to_act,
+                        };
+                        rooks_final_position = rooks_initial_position + (-2, 0);
+                    }
+                    Side::QueenSide => {
+                        // final position of rook, subtract initial position of rook
+                        rooks_initial_position = Coordinate {
+                            x: 0,
+                            y: row_to_act,
+                        };
+                        rooks_final_position = rooks_initial_position + (3, 0);
+                    }
+                }
+                rooks_final_position.value(PiecePerson::Rook { moved: true }, self.turn)
+                    - rooks_initial_position.value(PiecePerson::Rook { moved: true }, self.turn)
+            }
+            Move::EnPassant {
+                initial_position,
+                final_position,
+            } => {
+                // final - initial - value of taken piece
+                final_position.value(PiecePerson::Pawn { first_move: None }, self.turn)
+                    - initial_position.value(PiecePerson::Pawn { first_move: None }, self.turn)
+                    - Coordinate {
+                        x: final_position.x,
+                        y: initial_position.y,
+                    }
+                    .value(PiecePerson::Pawn { first_move: None }, self.turn.opposite())
+            }
+        }
     }
 
     fn new_row(right_piece: Piece, left_piece: Piece) -> [Square; BOARD_TILE_DIM as usize] {
@@ -1476,5 +1614,88 @@ impl fmt::Display for Board {
         Ok(())
 
         // write!(f, "{:?}", output)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+    use pgn_reader;
+    use pgn_reader::{BufferedReader, Skip, Visitor};
+
+    #[test]
+    fn test_move_delta_against_regular_board_eval() {
+        struct MoveCounter {
+            value: f32,
+            board: Board,
+        }
+
+        impl MoveCounter {
+            fn new() -> MoveCounter {
+                MoveCounter {
+                    value: 0.,
+                    board: Board::new(PieceColor::White),
+                }
+            }
+        }
+
+        impl Visitor for MoveCounter {
+            type Result = usize;
+
+            fn begin_game(&mut self) {
+                self.board = Board::new(PieceColor::White);
+                self.value = self.board.natural_score();
+            }
+
+            fn san(&mut self, san_plus: SanPlus) {
+                let piece_move = self.board.move_from_san(san_plus.san);
+                // println!("piece_move {:?}", piece_move);
+                // println!("board {}", self.board);
+                let score_delta= self.board.score_delta(&piece_move);
+
+                self.value += score_delta; 
+
+                self.board.apply_move(&piece_move);
+                let natural_score = self.board.natural_score();
+                
+                let epsilon = 0.0000030; 
+                
+                if !abs_diff_eq!(natural_score, self.value, epsilon = epsilon) {
+                    println!("{}", self.board);
+                    println!("{:?}", piece_move);
+                    println!("Score Delta: {:?}", score_delta);
+                }
+
+                assert_abs_diff_eq!(natural_score, self.value, epsilon = epsilon);
+            }
+
+            fn begin_variation(&mut self) -> Skip {
+                Skip(true) // stay in the mainline
+            }
+
+            fn end_game(&mut self) -> Self::Result {
+                1
+            }
+        }
+        
+        
+        // https://lichess.org/d5kge8qf
+        // My own
+        // https://lichess.org/4si2z6iq
+
+        let pgn = br#"
+1. e4 e5 2. Bc4 Nf6 3. d3 Bc5 4. h3 d6 5. a3 Nc6 6. Ne2 Be6 7. Bxe6 fxe6 8. b4 Bb6 9. Nbc3 d5 10. exd5 exd5 11. Bg5 Qd6 12. Bxf6 Qxf6 13. Nxd5 Qxf2+ 14. Kd2 O-O-O 15. Nxb6+ axb6 16. g4 e4 17. Rf1 Qd4 18. Nxd4 Nxd4 19. c3 Nb5 20. d4 c5 21. bxc5 bxc5 22. Kc2 cxd4 23. Qb1 d3+ 24. Kd2 Rd5 25. Rf5 Rxf5 26. gxf5 Nd6 27. Qf1 Rf8 28. Qg2 Rd8 29. Qxg7 e3+ 30. Ke1 Nxf5 31. Qxh7 d2+ 32. Ke2 Ng3+ 33. Kxe3 d1=Q 34. Rxd1 Rxd1 35. Qg8+ Kc7 36. Qxg3+ Kb6 37. Qg6+ Ka7 38. h4 Re1+ 39. Kd2 Ra1 40. Qd6 Ra2+ 41. Kd3 Ra1 42. Kc4 Rh1 43. Qd4+ Ka8 44. a4 Ra1 45. Qd7 Rh1 46. Qd8+ Ka7 47. a5 Ra1 48. h5 b5+ 49. Kxb5 Rb1+ 50. Kc4 Rb8 51. Qc7+ Rb7 52. Qxb7+ Kxb7 53. h6 Ka6 54. h7 Kxa5 55. h8=Q Kb6 56. Qe5 Kc6 57. Kb4 Kd7 58. Qf6 Kc7 59. c4 Kd7 60. c5 Kc7 61. c6 Kb6 62. Qg6 Kc7 63. Kc5 Kd8 64. Qh7 Kc8 65. Qf5+ Kb8 66. Kd6 Ka7 67. c7 Kb6 68. c8=Q Ka7 1-0
+
+1. e4 d6 2. e5 f5 3. exf6
+
+1. e4 Nc6 2. d4 e5 3. d5 Nce7 4. Nf3 Ng6 5. Bc4 Nf6 6. Nc3 Bc5 7. O-O h6 8. Be3 d6 9. Bxc5 dxc5 10. a3 a6 11. b4 b5 12. Bb3 c4 13. Ba2 Qd6 14. a4 O-O 15. axb5 Qxb4 16. Qd2 axb5 17. Rfb1 Qc5 18. Rxb5 Qd6 19. Rbb1 Rd8 20. Bxc4 Rxa1 21. Rxa1 Bb7 22. Ra7 Ba8 23. Nb5 Qc5 24. Rxc7 Qb6 25. Qc3 Nxe4 26. Qd3 Nxf2 27. Qe2 Ng4+ 28. Kh1 Nf2+ 29. Kg1 Nd3+ 30. Kf1 Ndf4 31. Qe4 Bxd5 32. Bxd5 Qxb5+ 33. Bc4 Rd1+ 34. Kf2 Qb6+ 35. Qe3 Qxc7 36. Qb3 Qc5+ 37. Kg3 Nd5 38. c3 Rh1 39. Bxd5 Nh8 40. Nxe5 Qe3+ 41. Nf3 h5 42. h4 Qe7 43. Qb8+ Kh7 44. c4 Ng6 45. Ng5+ Kh6 46. Nxf7+ Kh7 47. Ng5+ Kh6 48. Qg8 Qe5+ 49. Kf2 Qe1+ 50. Kf3 Nxh4+ 51. Kf4 Rf1+ 52. Nf3 g5+ 53. Qxg5+ Kh7 54. Qxh5+ Kg7 55. Qf7+ Kh6 56. Qf8+ Kh5 57. Bf7+ Ng6+ 58. Bxg6+ Kxg6 59. Qf5+ Kg7 60. Qg5+ Kf7 61. Qf5+ Kg7 62. Qg5+ Kf7 63. Qf5+ Ke7 64. Qg5+ Kd7 65. Qg7+ Kc6 66. Qf6+ Kc5 0-1
+        "#;
+        let mut reader = BufferedReader::new_cursor(&pgn[..]);
+
+        let mut counter = MoveCounter::new();
+        let moves = reader.read_game(&mut counter);
+
+        // assert_eq!(add(1, 2), 3);
     }
 }

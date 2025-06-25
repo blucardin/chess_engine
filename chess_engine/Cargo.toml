@@ -19,3 +19,4 @@ pgn-reader = "0.26.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11"
 bincode = "2.0.1"
+approx = "0.5.1"
