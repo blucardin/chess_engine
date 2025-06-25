@@ -339,7 +339,7 @@ impl ChessEngine {
     }
 
     pub fn next_best_move_natural_minimax_ab(&mut self, board: &Board, depth: i32) -> Move {
-        println!("Minimax_ab, searching");
+        // println!("Minimax_ab, searching");
 
         self.leaf_nodes_visited = 0;
         self.cache_hits = 0;
@@ -429,9 +429,9 @@ impl ChessEngine {
             }
         };
         
-        println!("Leaf_nodes_visited: {}", self.leaf_nodes_visited);
-        println!("Cache hits: {}", self.cache_hits);
-        println!("Cache misses: {}", self.cache_misses);
+        // println!("Leaf_nodes_visited: {}", self.leaf_nodes_visited);
+        // println!("Cache hits: {}", self.cache_hits);
+        // println!("Cache misses: {}", self.cache_misses);
         
         output
         

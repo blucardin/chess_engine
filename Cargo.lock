@@ -1604,6 +1604,8 @@ dependencies = [
  "burn",
  "chess_engine",
  "chess_neural_network_training",
+ "criterion",
+ "pgn-reader 0.27.0",
  "quick_cache",
 ]
 
@@ -1623,6 +1625,15 @@ name = "btoi"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9dd6407f73a9b8b6162d8a2ef999fe6afd7cc15902ebf42c5cd296addf17e0ad"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "btoi"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b5ab9db53bcda568284df0fd39f6eac24ad6f7ba7ff1168b9e76eba6576b976"
 dependencies = [
  "num-traits",
 ]
@@ -2155,7 +2166,7 @@ dependencies = [
  "approx",
  "bincode",
  "either",
- "pgn-reader",
+ "pgn-reader 0.27.0",
  "rand 0.9.1",
  "serde",
  "serde_bytes",
@@ -2180,12 +2191,12 @@ dependencies = [
  "criterion",
  "gnuplot",
  "indicatif",
- "pgn-reader",
+ "pgn-reader 0.26.0",
  "r2d2",
  "r2d2_sqlite",
  "serde",
  "serde_rusqlite",
- "shakmaty",
+ "shakmaty 0.27.3",
 ]
 
 [[package]]
@@ -5864,10 +5875,22 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1994b0ce2a74829bff0462e229b3f0a138cfb293e22c6a65f7966ff26d304e74"
 dependencies = [
- "btoi",
+ "btoi 0.4.3",
  "circular",
  "memchr",
- "shakmaty",
+ "shakmaty 0.27.3",
+]
+
+[[package]]
+name = "pgn-reader"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0790bc720c10e471a075af3e9e8d34545ab4ed49aabad031a8d4b857512af36a"
+dependencies = [
+ "btoi 0.5.0",
+ "circular",
+ "memchr",
+ "shakmaty 0.28.0",
 ]
 
 [[package]]
@@ -7029,7 +7052,20 @@ checksum = "f414cadc4e727893d1a3b0dca62aaef4c1c821dcbd969f0b10a92e12d684d53a"
 dependencies = [
  "arrayvec",
  "bitflags 2.9.1",
- "btoi",
+ "btoi 0.4.3",
+ "nohash-hasher",
+ "serde",
+]
+
+[[package]]
+name = "shakmaty"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3065bdba026d0a3a6eb452ff174dbbd258452643a71383153abb91a8a4fc1abc"
+dependencies = [
+ "arrayvec",
+ "bitflags 2.9.1",
+ "btoi 0.5.0",
  "nohash-hasher",
  "serde",
 ]

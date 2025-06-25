@@ -1436,7 +1436,7 @@ impl Board {
 
                     if let PiecePerson::King { .. } = piece.piece_person {
                         // if the king has been moved, there is no change in board value
-                        return output; 
+                        return output;
                     }
 
                     output -= initial_position.value(piece.piece_person, piece.color);
@@ -1654,13 +1654,13 @@ mod tests {
                 // println!("board {}", self.board);
                 let score_delta= self.board.score_delta(&piece_move);
 
-                self.value += score_delta; 
+                self.value += score_delta;
 
                 self.board.apply_move(&piece_move);
                 let natural_score = self.board.natural_score();
-                
-                let epsilon = 0.0000030; 
-                
+
+                let epsilon = 0.0000030;
+
                 if !abs_diff_eq!(natural_score, self.value, epsilon = epsilon) {
                     println!("{}", self.board);
                     println!("{:?}", piece_move);
@@ -1678,8 +1678,8 @@ mod tests {
                 1
             }
         }
-        
-        
+
+
         // https://lichess.org/d5kge8qf
         // My own
         // https://lichess.org/4si2z6iq
