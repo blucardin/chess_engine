@@ -8,7 +8,6 @@ use std::{fmt, ops};
 extern crate either;
 use either::Either;
 
-#[macro_use]
 extern crate approx;
 
 use pgn_reader::{CastlingSide, File, Rank, Role, San, SanPlus};
@@ -197,13 +196,6 @@ impl Piece {
     }
 }
 
-#[derive(Clone)]
-pub struct Board {
-    player_1_color: PieceColor,
-    pub turn: PieceColor,
-    pub squares: [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize],
-    move_number: i32,
-}
 
 #[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Coordinate {
@@ -373,6 +365,16 @@ pub const POSSIBLE_PAWN_PROMOTES: [PiecePerson; 4] = [
 
 fn rank_to_y(rank: Rank) -> usize {
     (BOARD_TILE_DIM as usize - 1) - rank as usize
+}
+
+#[derive(Clone)]
+pub struct Board {
+    player_1_color: PieceColor,
+    pub turn: PieceColor,
+    pub squares: [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize],
+    move_number: i32,
+    white_king_location: Coordinate,
+    black_king_location: Coordinate,
 }
 
 // custom implementation for unusual values
@@ -714,24 +716,19 @@ impl Board {
         // println!("Locating king");
         // println!("Second column of board: {:?}", self.squares[1]);
         // println!("Fifth column of board: {:?}", self.squares[4]);
-        for (idx, row) in self.squares.iter().enumerate() {
-            for (idy, square) in row.iter().enumerate() {
-                if let Square::Filled(Piece {
-                    color,
-                    piece_person: PiecePerson::King { .. },
-                }) = square
-                {
-                    if *color == search_color {
-                        return Coordinate {
-                            x: idx as isize,
-                            y: idy as isize,
-                        };
-                    }
-                }
-            }
+        match search_color {
+            PieceColor::Black => {self.black_king_location}
+            PieceColor::White => {self.white_king_location}
         }
-        panic!("NO KING ON BOARD")
     }
+    
+    fn update_king_location(&mut self, new_location: Coordinate) {
+        match self.turn { // we are only going to be updating the king's location when it is our turn, so 
+            PieceColor::Black => {self.black_king_location = new_location}
+            PieceColor::White => {self.white_king_location = new_location}
+        }
+    }
+
 
     fn check_check(&self, color: PieceColor, king_location: Coordinate) -> bool {
         // println!(
@@ -856,10 +853,13 @@ impl Board {
 
                         Square::Filled(Piece {
                             color,
-                            piece_person: PiecePerson::King { moved: false },
-                        }) => Piece {
-                            color,
-                            piece_person: PiecePerson::King { moved: true },
+                            piece_person: PiecePerson::King { .. },
+                        }) => {
+                            self.update_king_location(*final_position);
+                            Piece {
+                                color,
+                                piece_person: PiecePerson::King { moved: true },
+                            }
                         },
 
                         Square::Filled(Piece {
@@ -910,7 +910,7 @@ impl Board {
                     y: row_to_act,
                 };
 
-                let new_king_piece =
+                let new_king_piece = // todo: replace this with just setting the king's piece because it is faster
                     match self.squares[kings_position.x as usize][kings_position.y as usize] {
                         Square::Filled(Piece {
                             color,
@@ -920,15 +920,18 @@ impl Board {
                             piece_person: PiecePerson::King { moved: true },
                         },
                         _ => {
-                            panic!("No king where king expected")
+                            panic!("No unmoved king where unmoved king expected")
                         }
                     };
 
                 match side {
                     Side::KingsSide => {
+                        let final_position = kings_position + (2, 0); 
+                        self.update_king_location(final_position);
+                        
                         self.replace_piece(
                             &kings_position,
-                            &(kings_position + (2, 0)),
+                            &final_position,
                             new_king_piece,
                         );
                         // same thing for the rook
@@ -959,9 +962,13 @@ impl Board {
                         );
                     }
                     Side::QueenSide => {
+
+                        let final_position = kings_position + (-2, 0);
+                        self.update_king_location(final_position);
+                        
                         self.replace_piece(
                             &kings_position,
-                            &(kings_position + (-2, 0)),
+                            &final_position,
                             new_king_piece,
                         );
                         // same thing for the rook
@@ -1592,6 +1599,8 @@ impl Board {
             turn: PieceColor::White,
             squares,
             move_number: 0,
+            black_king_location: Coordinate {x: 4, y:0},
+            white_king_location: Coordinate {x: 4, y:BOARD_TILE_DIM - 1},
         }
     }
 }
@@ -1619,6 +1628,7 @@ impl fmt::Display for Board {
 
 #[cfg(test)]
 mod tests {
+    use approx::{abs_diff_eq, assert_abs_diff_eq};
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     use pgn_reader;
