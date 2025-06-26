@@ -721,9 +721,9 @@ impl Board {
             PieceColor::White => {self.white_king_location}
         }
     }
-    
+
     fn update_king_location(&mut self, new_location: Coordinate) {
-        match self.turn { // we are only going to be updating the king's location when it is our turn, so 
+        match self.turn { // we are only going to be updating the king's location when it is our turn, so
             PieceColor::Black => {self.black_king_location = new_location}
             PieceColor::White => {self.white_king_location = new_location}
         }
@@ -926,9 +926,9 @@ impl Board {
 
                 match side {
                     Side::KingsSide => {
-                        let final_position = kings_position + (2, 0); 
+                        let final_position = kings_position + (2, 0);
                         self.update_king_location(final_position);
-                        
+
                         self.replace_piece(
                             &kings_position,
                             &final_position,
@@ -965,7 +965,7 @@ impl Board {
 
                         let final_position = kings_position + (-2, 0);
                         self.update_king_location(final_position);
-                        
+
                         self.replace_piece(
                             &kings_position,
                             &final_position,

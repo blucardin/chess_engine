@@ -50,12 +50,15 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     
     let mut engine = ChessEngine::new(0);
 
-    let mut group = c.benchmark_group("Move Generation");
+    let mut group = c.benchmark_group("Move Generation Comparison");
     
-    for i in [2, 3, 4, 5].iter() {
+    for i in [2, 3, 4, 5, 6].iter() {
         group.throughput(Throughput::Elements(*i as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(i), i, |b, &i| {
+        group.bench_with_input(BenchmarkId::new("Eval", i), i, |b, &i| {
             b.iter(|| {engine.next_best_move_natural_minimax_ab(&board, i)});
+        });
+        group.bench_with_input(BenchmarkId::new("NoEval", i), i, |b, &i| {
+            b.iter(|| {engine.next_best_move_natural_minimax_ab_no_eval(&board, i)});
         });
     }
     group.finish()
