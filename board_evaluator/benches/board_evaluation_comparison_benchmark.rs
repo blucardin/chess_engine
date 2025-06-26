@@ -52,10 +52,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("Move Generation Comparison");
     
-    for i in [2, 3, 4, 5, 6].iter() {
+    for i in [2, 3, 4, 5].iter() {
         group.throughput(Throughput::Elements(*i as u64));
-        group.bench_with_input(BenchmarkId::new("Eval", i), i, |b, &i| {
-            b.iter(|| {engine.next_best_move_natural_minimax_ab(&board, i)});
+        group.bench_with_input(BenchmarkId::new("NoEvalSortId", i), i, |b, &i| {
+            b.iter(|| {engine.next_best_move_natural_minimax_ab_no_eval_sort_id(&board, i)});
         });
         group.bench_with_input(BenchmarkId::new("NoEval", i), i, |b, &i| {
             b.iter(|| {engine.next_best_move_natural_minimax_ab_no_eval(&board, i)});

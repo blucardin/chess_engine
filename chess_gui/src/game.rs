@@ -439,7 +439,7 @@ fn computer_move(
     
     let board = board_resource.board.clone(); 
     
-    let computer_move = board_resource.engine.next_best_move_natural_minimax_ab_no_eval(&board, 5);
+    let computer_move = board_resource.engine.next_best_move_natural_minimax_ab_no_eval_sort_id(&board, 6);
     
     // println!("computer_move: {:?}", computer_move);
     board_resource.board.apply_move(

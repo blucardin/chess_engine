@@ -233,13 +233,13 @@ impl ops::Add<(isize, isize)> for Coordinate {
     }
 }
 
-#[derive(Encode, Decode, Debug, Clone)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq)]
 pub enum Side {
     QueenSide,
     KingsSide,
 }
 
-#[derive(Encode, Decode, Debug, Clone)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq)]
 pub enum Move {
     Regular {
         initial_position: Coordinate,
@@ -372,7 +372,7 @@ pub struct Board {
     player_1_color: PieceColor,
     pub turn: PieceColor,
     pub squares: [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize],
-    move_number: i32,
+    pub move_number: i32,
     white_king_location: Coordinate,
     black_king_location: Coordinate,
 }
