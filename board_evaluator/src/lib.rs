@@ -786,9 +786,12 @@ impl ChessEngine {
                 min_move.unwrap()
             }
             PieceColor::White => {
+                println!("max");
 
                 let mut max_value = -f32::INFINITY;
                 let mut max_move = None;
+                
+                println!("{} {:?}",  board, board.get_all_moves_for_turn());
 
                 let mut possible_moves: Vec<(f32, Move)> = board.get_all_moves_for_turn()
                     .into_iter()
@@ -797,7 +800,7 @@ impl ChessEngine {
 
                 possible_moves.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // least to greatest
 
-                // println!("max");
+                println!("possible_moves : {:?}", possible_moves);
                 
                 for (score_delta, piece_move) in possible_moves.into_iter().rev() { // greatest to least
                     // println!("max_move");
@@ -817,9 +820,10 @@ impl ChessEngine {
                     // for x in 0..depth {
                     //     print!("\t");
                     // }
-                    // println!("{:?}", eval);
+                    println!("{:?} {:?}", eval, piece_move);
 
                     if eval > max_value {
+                        println!("Updated max_move with {:?} {:?}", eval, piece_move);
                         max_value = eval;
                         max_move = Some(piece_move);
                     }
@@ -988,7 +992,7 @@ impl ChessEngine {
 
 #[cfg(test)]
 mod tests {
-    use chess_engine::GameState;
+    use chess_engine::Outcome;
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     #[test]
@@ -1000,7 +1004,7 @@ mod tests {
 
         let mut differences = 0; 
 
-        while let GameState::Playing = board.outcome(){
+        while let Outcome::Playing = board.outcome(){
             let natural_minimax_ab_move = engine.next_best_move_natural_minimax_ab(&board, recursion_depth);
             let natural_minimax_ab_no_eval_move = engine.next_best_move_natural_minimax_ab_no_eval(&board, recursion_depth);
 

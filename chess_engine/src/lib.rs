@@ -350,7 +350,7 @@ pub enum MoveType {
     Take,
 }
 
-pub enum GameState {
+pub enum Outcome {
     Playing,
     Checkmate { winner: PieceColor },
     Draw,
@@ -472,6 +472,10 @@ impl Board {
             Some(self.filter_legal_moves(match piece.piece_person {
                 PiecePerson::Pawn { first_move } => {
                     let going_up = self.pawn_going_up();
+                    // println!("Going up: {}", going_up);
+                    // println!("self.turn: {:?}", self.turn);
+                    // println!("player_1_color: {:?}", self.player_1_color);
+
                     let direction: isize = if going_up { -1 } else { 1 };
 
                     // Check if the pawn is on the last row of its direction, these become 3 separate moves, Knight, Rook, and Queen
@@ -489,6 +493,7 @@ impl Board {
                     }
 
                     let front = initial_position + (0, 1 * direction);
+                    // println!("front: {:?}", front);
                     if self.possible_jump(&front) {
                         let move_type = MoveType::Jump;
                         if promote {
@@ -499,6 +504,7 @@ impl Board {
                                     move_type,
                                     piece_person,
                                 });
+                                // println!("front move added for pawn.");
                             }
                         } else {
                             output.push(Move::Regular {
@@ -571,7 +577,8 @@ impl Board {
                             }
                         }
                     }
-
+                    
+                    // println!("Output before king filter {:?}", output);
                     output
                 }
                 PiecePerson::Rook { .. } => self.cast_ray(&initial_position, &ROOK_SEARCH_OFFSETS),
@@ -1243,19 +1250,19 @@ impl Board {
         all_possible_moves.choose(&mut rand::rng()).unwrap().clone()
     }
 
-    pub fn outcome(&self) -> GameState {
+    pub fn outcome(&self) -> Outcome {
         let possible_moves = self.get_all_moves_for_turn();
 
         let game_state = if possible_moves.is_empty() {
             if self.check_check(self.turn, self.locate_king(self.turn)) {
-                GameState::Checkmate {
+                Outcome::Checkmate {
                     winner: self.turn.opposite(),
                 }
             } else {
-                GameState::Draw
+                Outcome::Draw
             }
         } else {
-            GameState::Playing
+            Outcome::Playing
         };
 
         game_state
@@ -1593,14 +1600,21 @@ impl Board {
                 Piece::new(player_1_color, *person),
             );
         }
+        
+        let mut y_of_white_king = BOARD_TILE_DIM - 1;
+        let mut y_of_black_king = 0isize;
+        
+        if player_1_color == PieceColor::Black {
+            (y_of_white_king, y_of_black_king) = (y_of_black_king, y_of_white_king);
+        }
 
         Board {
             player_1_color,
             turn: PieceColor::White,
             squares,
             move_number: 0,
-            black_king_location: Coordinate {x: 4, y:0},
-            white_king_location: Coordinate {x: 4, y:BOARD_TILE_DIM - 1},
+            black_king_location: Coordinate {x: 4, y:y_of_black_king},
+            white_king_location: Coordinate {x: 4, y:y_of_white_king},
         }
     }
 }
