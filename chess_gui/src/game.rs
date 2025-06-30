@@ -1,7 +1,7 @@
 use bevy::color::palettes::basic::RED;
 use bevy::input::common_conditions::*;
 use bevy::prelude::*;
-
+use bevy::ui::widget::ImageNodeSize;
 use board_evaluator::ChessEngine;
 use chess_engine::Move;
 use chess_engine::*;
@@ -48,9 +48,11 @@ impl Plugin for Game {
         // setup_home_screen
         app.add_systems(OnEnter(ScreenState::HomeScreen), setup_home_screen);
         app.add_systems(OnExit(ScreenState::HomeScreen), tear_down_home_screen);
-        
 
-        app.add_systems(OnEnter(ScreenState::GameScreen), (setup_board, re_draw_pieces));
+        app.add_systems(
+            OnEnter(ScreenState::GameScreen),
+            (setup_board, re_draw_pieces),
+        );
         // app.add_systems(OnEnter(TurnState::ComputerTurn), re_draw_pieces);
         // app.add_systems(OnEnter(TurnState::Player1Turn), re_draw_pieces);
         // app.add_systems(OnEnter(TurnState::Player2Turn), re_draw_pieces);
@@ -135,33 +137,35 @@ fn button_system(
     for (interaction, mut color, mut border_color, children, board_setup_settings) in
         &mut interaction_query
     {
-        let mut text = text_query.get_mut(children[0]).unwrap();
+        // let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
-                **text = "Press".to_string();
+                // **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
-                println!("{:?} clicked", board_setup_settings);
+                // println!("{:?} clicked", board_setup_settings);
                 next_screen_state.set(ScreenState::GameScreen);
-                
+
                 next_game_mode_state.set(board_setup_settings.game_mode.clone());
-                
+
                 board_resource.board = Board::new(board_setup_settings.main_player);
-                
-                if board_setup_settings.game_mode == GameMode::PlayerVsComputer && board_setup_settings.main_player == PieceColor::Black {
+
+                if board_setup_settings.game_mode == GameMode::PlayerVsComputer
+                    && board_setup_settings.main_player == PieceColor::Black
+                {
                     next_turn_state.set(TurnState::ComputerTurn);
                 } else {
                     next_turn_state.set(TurnState::Player1Turn);
                 }
-                break; 
+                break;
             }
             Interaction::Hovered => {
-                **text = "Hover".to_string();
+                // **text = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
                 border_color.0 = Color::WHITE;
             }
             Interaction::None => {
-                **text = "Button".to_string();
+                // **text = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
                 border_color.0 = Color::BLACK;
             }
@@ -173,9 +177,9 @@ fn button_system(
 struct HomeScreenMarker;
 
 fn tear_down_home_screen(
-    mut commands: Commands, 
+    mut commands: Commands,
     home_screen_items: Query<Entity, With<HomeScreenMarker>>,
-){
+) {
     home_screen_items
         .iter()
         .for_each(|home_screen_item| commands.entity(home_screen_item).despawn());
@@ -186,39 +190,68 @@ fn setup_home_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
-            align_items: AlignItems::Default,
+            align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceAround,
+            flex_direction: FlexDirection::Column,
             ..default()
         },
         HomeScreenMarker,
         children![
-            button(
-                &asset_server,
-                BoardSetupSettings {
-                    main_player: PieceColor::White,
-                    game_mode: GameMode::PlayerVsComputer,
+            (
+                Text::new("Play Against Computer"),
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
                 },
+                children![
+                    button(
+                        &asset_server,
+                        BoardSetupSettings {
+                            main_player: PieceColor::White,
+                            game_mode: GameMode::PlayerVsComputer,
+                        },
+                        PieceColor::White
+                    ),
+                    button(
+                        &asset_server,
+                        BoardSetupSettings {
+                            main_player: PieceColor::Black,
+                            game_mode: GameMode::PlayerVsComputer,
+                        },
+                        PieceColor::Black
+                    )
+                ]
             ),
-            button(
-                &asset_server,
-                BoardSetupSettings {
-                    main_player: PieceColor::Black,
-                    game_mode: GameMode::PlayerVsComputer,
+            (
+                Text::new("Play Against Human (local multiplayer)"),
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
                 },
-            ),
-            button(
-                &asset_server,
-                BoardSetupSettings {
-                    main_player: PieceColor::White,
-                    game_mode: GameMode::PlayerVsPlayer,
-                },
-            ),
-            button(
-                &asset_server,
-                BoardSetupSettings {
-                    main_player: PieceColor::Black,
-                    game_mode: GameMode::PlayerVsPlayer,
-                },
+                children![
+                    button(
+                        &asset_server,
+                        BoardSetupSettings {
+                            main_player: PieceColor::White,
+                            game_mode: GameMode::PlayerVsPlayer,
+                        },
+                        PieceColor::White
+                    ),
+                    button(
+                        &asset_server,
+                        BoardSetupSettings {
+                            main_player: PieceColor::Black,
+                            game_mode: GameMode::PlayerVsPlayer,
+                        },
+                        PieceColor::Black
+                    )
+                ]
             ),
         ],
     ));
@@ -227,12 +260,14 @@ fn setup_home_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn button(
     asset_server: &AssetServer,
     board_setup_settings: BoardSetupSettings,
+    color: PieceColor,
 ) -> impl Bundle + use<> {
+    let height = 65.;
     (
         Button,
         Node {
             width: Val::Px(150.0),
-            height: Val::Px(65.0),
+            height: Val::Px(height),
             border: UiRect::all(Val::Px(5.0)),
             // horizontally center child text
             justify_content: JustifyContent::Center,
@@ -244,10 +279,32 @@ fn button(
         BorderColor(Color::BLACK),
         BorderRadius::MAX,
         BackgroundColor(NORMAL_BUTTON),
+        // Sprite {
+        //     image: asset_server.load(format_piece_filename(
+        //         PieceColor::White.file_string(),
+        //         PiecePerson::King {moved : false}.file_string(),
+        //     )),
+        //     // custom_size: Some(Vec2::new(size_x, size_y)),
+        //     ..default()
+        // },
         children![(
-            Text::new("Button"),
-            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-            TextShadow::default(),
+            // Text::new("Button"),
+            // TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            // TextShadow::default(),
+            ImageNode::new(asset_server.load(format_piece_filename(
+                color.file_string(),
+                PiecePerson::King { moved: false }.file_string(),
+            ))),
+            Node {
+                width: Val::Px(height),
+                height: Val::Px(height),
+                // horizontally center child text
+                justify_content: JustifyContent::Center,
+                // vertically center child text
+                align_items: AlignItems::Center,
+                // margin: UiRect::all(Val::Px(20.0)),
+                ..default()
+            }
         )],
     )
 }
@@ -490,13 +547,12 @@ fn mouse_button_input(
             //     println!("{:?}", x);
             // }
 
-
             match game_mode.get() {
                 GameMode::PlayerVsComputer => {
                     next_computer_turn_state.set(TurnState::ComputerTurn);
                 }
                 GameMode::PlayerVsPlayer => {
-                    let current_turn_state =  turn_state.get();
+                    let current_turn_state = turn_state.get();
                     match turn_state.get() {
                         TurnState::Player1Turn => {
                             next_computer_turn_state.set(TurnState::Player2Turn);
@@ -504,7 +560,12 @@ fn mouse_button_input(
                         TurnState::Player2Turn => {
                             next_computer_turn_state.set(TurnState::Player1Turn);
                         }
-                        TurnState::ComputerTurn => {panic!("In wrong state for mouse movement {:?}, ", current_turn_state)}
+                        TurnState::ComputerTurn => {
+                            panic!(
+                                "In wrong state for mouse movement {:?}, ",
+                                current_turn_state
+                            )
+                        }
                     }
                 }
             }
@@ -621,14 +682,12 @@ fn computer_move(
     next_computer_turn_state.set(TurnState::Player1Turn);
 }
 
-
 fn check_if_game_over(
     board_resource: NonSendMut<ChessGameResource>,
     mut commands: Commands,
     mut next_screen_state: ResMut<NextState<ScreenState>>,
-    mut next_turn_state: ResMut<NextState<TurnState>>,
-){
-
+    // mut next_turn_state: ResMut<NextState<TurnState>>,
+) {
     let game_state = board_resource.board.outcome();
 
     match game_state {
