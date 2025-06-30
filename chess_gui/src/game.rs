@@ -191,68 +191,110 @@ fn setup_home_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             align_items: AlignItems::Center,
-            justify_content: JustifyContent::SpaceAround,
+            // justify_content: JustifyContent::SpaceAround,
             flex_direction: FlexDirection::Column,
             ..default()
         },
         HomeScreenMarker,
         children![
             (
-                Text::new("Play Against Computer"),
                 Node {
                     width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
                     align_items: AlignItems::Center,
-                    justify_content: JustifyContent::SpaceAround,
+                    justify_content: JustifyContent::Center,
+                    flex_direction: FlexDirection::Column,
                     ..default()
                 },
                 children![
-                    button(
-                        &asset_server,
-                        BoardSetupSettings {
-                            main_player: PieceColor::White,
-                            game_mode: GameMode::PlayerVsComputer,
+                    (
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            align_items: AlignItems::End,
+                            justify_content: JustifyContent::SpaceAround,
+                            ..default()
                         },
-                        PieceColor::White
+                        children![Text::new("Play Against Computer")],
                     ),
-                    button(
-                        &asset_server,
-                        BoardSetupSettings {
-                            main_player: PieceColor::Black,
-                            game_mode: GameMode::PlayerVsComputer,
+                    (
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            align_items: AlignItems::Start,
+                            justify_content: JustifyContent::SpaceAround,
+                            ..default()
                         },
-                        PieceColor::Black
+                        children![
+                            button(
+                                &asset_server,
+                                BoardSetupSettings {
+                                    main_player: PieceColor::White,
+                                    game_mode: GameMode::PlayerVsComputer,
+                                },
+                                PieceColor::White
+                            ),
+                            button(
+                                &asset_server,
+                                BoardSetupSettings {
+                                    main_player: PieceColor::Black,
+                                    game_mode: GameMode::PlayerVsComputer,
+                                },
+                                PieceColor::Black
+                            )
+                        ]
                     )
                 ]
             ),
             (
-                Text::new("Play Against Human (local multiplayer)"),
                 Node {
                     width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
                     align_items: AlignItems::Center,
-                    justify_content: JustifyContent::SpaceAround,
+                    justify_content: JustifyContent::Center,
+                    flex_direction: FlexDirection::Column,
                     ..default()
                 },
                 children![
-                    button(
-                        &asset_server,
-                        BoardSetupSettings {
-                            main_player: PieceColor::White,
-                            game_mode: GameMode::PlayerVsPlayer,
+                    (
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            align_items: AlignItems::End,
+                            justify_content: JustifyContent::SpaceAround,
+                            ..default()
                         },
-                        PieceColor::White
+                        children![Text::new("Play Against Human (Local Multiplayer)")],
                     ),
-                    button(
-                        &asset_server,
-                        BoardSetupSettings {
-                            main_player: PieceColor::Black,
-                            game_mode: GameMode::PlayerVsPlayer,
+                    (
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            align_items: AlignItems::Start,
+                            justify_content: JustifyContent::SpaceAround,
+                            ..default()
                         },
-                        PieceColor::Black
+                        children![
+                            button(
+                                &asset_server,
+                                BoardSetupSettings {
+                                    main_player: PieceColor::White,
+                                    game_mode: GameMode::PlayerVsPlayer,
+                                },
+                                PieceColor::White
+                            ),
+                            button(
+                                &asset_server,
+                                BoardSetupSettings {
+                                    main_player: PieceColor::Black,
+                                    game_mode: GameMode::PlayerVsPlayer,
+                                },
+                                PieceColor::Black
+                            )
+                        ]
                     )
-                ]
-            ),
+                ],
+            )
         ],
     ));
 }
