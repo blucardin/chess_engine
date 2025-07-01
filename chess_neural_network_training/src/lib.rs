@@ -72,7 +72,7 @@ pub fn get_sqlite_index(index: usize, blank_board: &Board, conn_pool : &Pool<Sql
     
     // label is raw_moves_and_label.white_winner
     
-    (new_board, moves) // return move to prevent it from being optimized out
+    (new_board, moves) // return move to prevent it from being optimized website
 }
 
 #[inline]
@@ -101,7 +101,7 @@ pub fn get_sqlite_index_no_deserialization(index: usize, blank_board: &Board, co
 
     // label is raw_moves_and_label.white_winner
 
-    (new_board, raw_moves_and_label) // return move to prevent it from being optimized out
+    (new_board, raw_moves_and_label) // return move to prevent it from being optimized website
 }
 
 

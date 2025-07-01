@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-burn = { version = "~0.17", features = ["train", "wgpu", "vision"] }
-chess_neural_network_training = { path = "../chess_neural_network_training" }
+#burn = { version = "~0.17", features = ["train", "wgpu", "vision"] }
+#chess_neural_network_training = { path = "../chess_neural_network_training" }
 chess_engine = { path = "../chess_engine" }
 quick_cache = "0.6.14"
-criterion = "0.6.0"
+criterion = { version = "0.6.0", default-features = false }
 pgn-reader = "0.27.0"
 
 

@@ -1601,9 +1601,7 @@ dependencies = [
 name = "board_evaluator"
 version = "0.1.0"
 dependencies = [
- "burn",
  "chess_engine",
- "chess_neural_network_training",
  "criterion",
  "pgn-reader 0.27.0",
  "quick_cache",
@@ -2167,7 +2165,6 @@ dependencies = [
  "bincode",
  "either",
  "pgn-reader 0.27.0",
- "rand 0.9.1",
  "serde",
  "serde_bytes",
 ]
@@ -2179,6 +2176,8 @@ dependencies = [
  "bevy",
  "board_evaluator",
  "chess_engine",
+ "getrandom 0.3.3",
+ "uuid",
 ]
 
 [[package]]

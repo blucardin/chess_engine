@@ -1,7 +1,7 @@
 pub mod move_serialization;
 
 use bincode::{Decode, Encode};
-use rand::seq::IndexedRandom;
+// use rand::seq::IndexedRandom;
 use std::cmp::PartialEq;
 use std::{fmt, ops};
 
@@ -264,7 +264,7 @@ pub enum Move {
 impl Move {
     // fn to_byte(&self) -> u16 {
     //     // let output = [false ; 8];
-    //     let out = 0u16;
+    //     let website = 0u16;
     //
     //     match self {
     //         Move::Regular { .. } => {}
@@ -274,11 +274,11 @@ impl Move {
     //     }
     //
     //     //
-    //     // let out = output.iter().fold(0u16, |v, b| (v << 1) | (*b as u16));
+    //     // let website = output.iter().fold(0u16, |v, b| (v << 1) | (*b as u16));
     //     //
-    //     // println!("{}", out);
+    //     // println!("{}", website);
     //
-    //     out
+    //     website
     // }
 
     pub fn move_to_text_cheat(&self) -> String {
@@ -577,7 +577,7 @@ impl Board {
                             }
                         }
                     }
-                    
+
                     // println!("Output before king filter {:?}", output);
                     output
                 }
@@ -1240,15 +1240,15 @@ impl Board {
         self.squares[ix][iy] = Square::Empty;
     }
 
-    pub fn find_computer_move(&self, all_possible_moves: Vec<Move>) -> Move {
-        // get all the possible moves
-        // let all_possible_moves = self.get_all_moves_for_turn();
-
-        // todo: implement minimax searching
-
-        // pick a random one
-        all_possible_moves.choose(&mut rand::rng()).unwrap().clone()
-    }
+    // pub fn find_computer_move(&self, all_possible_moves: Vec<Move>) -> Move {
+    //     // get all the possible moves
+    //     // let all_possible_moves = self.get_all_moves_for_turn();
+    //
+    //     // todo: implement minimax searching
+    //
+    //     // pick a random one
+    //     all_possible_moves.choose(&mut rand::rng()).unwrap().clone()
+    // }
 
     pub fn outcome(&self) -> Outcome {
         let possible_moves = self.get_all_moves_for_turn();
@@ -1600,10 +1600,10 @@ impl Board {
                 Piece::new(player_1_color, *person),
             );
         }
-        
+
         let mut y_of_white_king = BOARD_TILE_DIM - 1;
         let mut y_of_black_king = 0isize;
-        
+
         if player_1_color == PieceColor::Black {
             (y_of_white_king, y_of_black_king) = (y_of_black_king, y_of_white_king);
         }

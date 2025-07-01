@@ -13,8 +13,11 @@ edition = "2024"
 
 
 [dependencies]
+uuid = { version = "1.13.1", default-features = false, features = ["js"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 bevy = "0.16.0"
 chess_engine = { path = "../chess_engine" }
 board_evaluator = { path = "../board_evaluator" }
 
+#[target.'cfg(target_arch = "wasm32")'.dependencies]
 
