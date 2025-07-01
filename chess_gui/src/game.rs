@@ -5,6 +5,8 @@ use bevy::ui::widget::ImageNodeSize;
 use board_evaluator::ChessEngine;
 use chess_engine::Move;
 use chess_engine::*;
+use std::cmp::PartialEq;
+use std::process::Termination;
 
 pub const WHITE_TILE_COLOR: Color = Color::srgb_u8(254, 207, 159);
 
@@ -22,9 +24,6 @@ pub struct Game;
 
 impl Plugin for Game {
     fn build(&self, app: &mut App) {
-        app.insert_resource(GameSettings {
-            computer_player: true,
-        });
         app.insert_non_send_resource(ChessGameResource {
             board: Board::new(PieceColor::White),
             engine: ChessEngine::new(100_000),
@@ -32,11 +31,13 @@ impl Plugin for Game {
         app.insert_state(ScreenState::HomeScreen);
         app.insert_state(TurnState::Player1Turn);
         app.insert_state(GameMode::PlayerVsComputer);
+        app.insert_state(TerminationOutcome::Draw);
         app.add_systems(Startup, setup_camera);
         app.add_systems(
             Update,
             (
                 button_system.run_if(in_state(ScreenState::HomeScreen)),
+                button_system.run_if(in_state(ScreenState::GameTerminationScreen)),
                 mouse_button_input
                     .run_if(input_just_pressed(MouseButton::Left))
                     .run_if(not(in_state(TurnState::ComputerTurn)))
@@ -59,6 +60,16 @@ impl Plugin for Game {
         app.add_systems(OnExit(TurnState::Player1Turn), check_if_game_over);
         app.add_systems(OnExit(TurnState::ComputerTurn), check_if_game_over);
         app.add_systems(OnExit(TurnState::Player2Turn), check_if_game_over);
+
+        app.add_systems(
+            OnEnter(ScreenState::GameTerminationScreen),
+            setup_termination_screen,
+        );
+
+        app.add_systems(
+            OnExit(ScreenState::GameTerminationScreen),
+            tear_down_termination_screen,
+        );
     }
 }
 
@@ -83,9 +94,11 @@ enum GameMode {
     PlayerVsPlayer,
 }
 
-#[derive(Resource, Clone)]
-struct GameSettings {
-    computer_player: bool,
+#[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+enum TerminationOutcome {
+    Draw,
+    ComputerWinner(PieceColor),
+    PlayerWinner(PieceColor),
 }
 
 fn generate_transform_for_board_gui(
@@ -111,6 +124,7 @@ fn setup_camera(mut commands: Commands) {
 struct BoardSetupSettings {
     main_player: PieceColor,
     game_mode: GameMode,
+    next_screen_state: ScreenState,
 }
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
@@ -144,7 +158,7 @@ fn button_system(
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
                 // println!("{:?} clicked", board_setup_settings);
-                next_screen_state.set(ScreenState::GameScreen);
+                next_screen_state.set(board_setup_settings.next_screen_state.clone());
 
                 next_game_mode_state.set(board_setup_settings.game_mode.clone());
 
@@ -183,6 +197,25 @@ fn tear_down_home_screen(
     home_screen_items
         .iter()
         .for_each(|home_screen_item| commands.entity(home_screen_item).despawn());
+}
+
+fn button_from_piece_color(
+    asset_server: &AssetServer,
+    color: PieceColor,
+    game_mode: GameMode,
+) -> impl Bundle {
+    button(
+        &*asset_server,
+        BoardSetupSettings {
+            main_player: color,
+            game_mode: game_mode,
+            next_screen_state: ScreenState::GameScreen,
+        },
+        ImageNode::new(asset_server.load(format_piece_filename(
+            color.file_string(),
+            PiecePerson::King { moved: false }.file_string(),
+        ))),
+    )
 }
 
 fn setup_home_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -226,21 +259,15 @@ fn setup_home_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                         children![
-                            button(
+                            button_from_piece_color(
                                 &asset_server,
-                                BoardSetupSettings {
-                                    main_player: PieceColor::White,
-                                    game_mode: GameMode::PlayerVsComputer,
-                                },
-                                PieceColor::White
+                                PieceColor::White,
+                                GameMode::PlayerVsComputer,
                             ),
-                            button(
+                            button_from_piece_color(
                                 &asset_server,
-                                BoardSetupSettings {
-                                    main_player: PieceColor::Black,
-                                    game_mode: GameMode::PlayerVsComputer,
-                                },
-                                PieceColor::Black
+                                PieceColor::Black,
+                                GameMode::PlayerVsComputer,
                             )
                         ]
                     )
@@ -275,21 +302,15 @@ fn setup_home_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                         children![
-                            button(
+                            button_from_piece_color(
                                 &asset_server,
-                                BoardSetupSettings {
-                                    main_player: PieceColor::White,
-                                    game_mode: GameMode::PlayerVsPlayer,
-                                },
-                                PieceColor::White
+                                PieceColor::White,
+                                GameMode::PlayerVsPlayer,
                             ),
-                            button(
+                            button_from_piece_color(
                                 &asset_server,
-                                BoardSetupSettings {
-                                    main_player: PieceColor::Black,
-                                    game_mode: GameMode::PlayerVsPlayer,
-                                },
-                                PieceColor::Black
+                                PieceColor::Black,
+                                GameMode::PlayerVsPlayer,
                             )
                         ]
                     )
@@ -299,12 +320,25 @@ fn setup_home_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn button(
+fn button<T: Bundle>(
     asset_server: &AssetServer,
     board_setup_settings: BoardSetupSettings,
-    color: PieceColor,
-) -> impl Bundle + use<> {
+    icon: T,
+) -> impl Bundle + use<T> {
     let height = 65.;
+
+    // let icon : impl Component = if draw_piece {
+    //     (ImageNode::new(asset_server.load(format_piece_filename(
+    //         color.file_string(),
+    //         PiecePerson::King { moved: false }.file_string(),
+    //     ))))
+    // } else {
+    //     (
+    //         Text::new("Button"),
+    //         TextColor(Color::srgb(0.9, 0.9, 0.9)),
+    //         TextShadow::default() ,
+    //         )
+    // };
     (
         Button,
         Node {
@@ -333,10 +367,6 @@ fn button(
             // Text::new("Button"),
             // TextColor(Color::srgb(0.9, 0.9, 0.9)),
             // TextShadow::default(),
-            ImageNode::new(asset_server.load(format_piece_filename(
-                color.file_string(),
-                PiecePerson::King { moved: false }.file_string(),
-            ))),
             Node {
                 width: Val::Px(height),
                 height: Val::Px(height),
@@ -346,10 +376,113 @@ fn button(
                 align_items: AlignItems::Center,
                 // margin: UiRect::all(Val::Px(20.0)),
                 ..default()
-            }
+            },
+            icon,
         )],
     )
 }
+
+const TERMINATION_SCREEN_OVERLAY_COLOR: Color = Color::srgba_u8(0, 0, 0, 150);
+
+#[derive(Component)]
+struct TerminationScreenMarker;
+
+fn tear_down_termination_screen(
+    mut commands: Commands,
+    termination_screen_items: Query<Entity, With<TerminationScreenMarker>>,
+    piece_items: Query<Entity, With<PieceMarker>>,
+    board_tiles: Query<Entity, With<BoardTileMarker>>,
+) {
+    despawn_items(&mut commands, termination_screen_items);
+    despawn_items(&mut commands, piece_items);
+    despawn_items(&mut commands, board_tiles);
+}
+
+fn setup_termination_screen(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    window: Single<&mut Window>,
+    termination_state: Res<State<TerminationOutcome>>,
+    game_mode: Res<State<GameMode>>,
+    asset_server: Res<AssetServer>,
+    mut board_resource: NonSendMut<ChessGameResource>,
+) {
+    let width = window.width();
+    let height = window.height();
+
+    commands.spawn((
+        TerminationScreenMarker,
+        Mesh2d(meshes.add(Rectangle::new(width, height))),
+        MeshMaterial2d(materials.add(TERMINATION_SCREEN_OVERLAY_COLOR)),
+        Transform::from_xyz(0.0, 0.0, 0.0),
+    ));
+
+    let text = match termination_state.get() {
+        TerminationOutcome::Draw => "DRAW",
+        TerminationOutcome::ComputerWinner(_) => "Computer wins, you lose",
+        TerminationOutcome::PlayerWinner(winner) => match winner {
+            PieceColor::Black => "Checkmate, winner is Black",
+            PieceColor::White => "Checkmate, winner is White",
+        },
+    };
+
+    commands.spawn((
+        TerminationScreenMarker,
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Column,
+            ..default()
+        },
+        children![
+            (
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
+                },
+                children![Text::new(text)],
+            ),
+            (
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Start,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
+                },
+                children![
+                    button(
+                        &asset_server,
+                        BoardSetupSettings {
+                            main_player: board_resource.board.player_1_color,
+                            game_mode: game_mode.get().clone(),
+                            next_screen_state: ScreenState::GameScreen,
+                        },
+                        children![Text::new("Rematch")]
+                    ),
+                    button(
+                        &asset_server,
+                        BoardSetupSettings {
+                            main_player: PieceColor::White,
+                            game_mode: GameMode::PlayerVsPlayer,
+                            next_screen_state: ScreenState::HomeScreen,
+                        },
+                       children![Text::new("Homescreen")]
+                    ),
+                ]
+            )
+        ],
+    ));
+}
+
+#[derive(Component)]
+struct BoardTileMarker;
 
 fn setup_board(
     mut commands: Commands,
@@ -377,12 +510,19 @@ fn setup_board(
                 generate_transform_for_board_gui(width, height, size_x, size_y, idx, idy);
 
             commands.spawn((
+                BoardTileMarker,
                 Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
                 MeshMaterial2d(materials.add(color)),
                 transform,
             ));
         }
     }
+}
+
+fn despawn_items<T: Component>(commands: &mut Commands, items: Query<Entity, With<T>>) {
+    items
+        .iter()
+        .for_each(|item| commands.entity(item).despawn());
 }
 
 fn re_draw_pieces(
@@ -392,9 +532,7 @@ fn re_draw_pieces(
     asset_server: Res<AssetServer>,
     gui_pieces: Query<Entity, With<PieceMarker>>,
 ) {
-    gui_pieces
-        .iter()
-        .for_each(|gui_piece| commands.entity(gui_piece).despawn());
+    despawn_items(&mut commands, gui_pieces);
 
     let width = window.width();
     let height = window.height();
@@ -443,7 +581,6 @@ struct PromotionPicker {
 fn mouse_button_input(
     // buttons: Res<ButtonInput<MouseButton>>,
     mut board_resource: NonSendMut<ChessGameResource>,
-    game_settings: Res<GameSettings>,
     window: Single<&mut Window>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -692,7 +829,6 @@ fn mouse_button_input(
 fn computer_move(
     // buttons: Res<ButtonInput<MouseButton>>,
     mut board_resource: NonSendMut<ChessGameResource>,
-    game_settings: Res<GameSettings>,
     window: Single<&mut Window>,
     mut commands: Commands,
     gui_pieces: Query<Entity, With<PieceMarker>>,
@@ -729,6 +865,9 @@ fn check_if_game_over(
     mut commands: Commands,
     mut next_screen_state: ResMut<NextState<ScreenState>>,
     // mut next_turn_state: ResMut<NextState<TurnState>>,
+    turn_state: Res<State<TurnState>>,
+    game_mode_state: Res<State<GameMode>>,
+    mut next_termination_state: ResMut<NextState<TerminationOutcome>>,
 ) {
     let game_state = board_resource.board.outcome();
 
@@ -737,30 +876,18 @@ fn check_if_game_over(
             return;
         }
         Outcome::Checkmate { winner } => {
-            let text = match winner {
-                PieceColor::Black => "Checkmate, winner is Black",
-                PieceColor::White => "Checkmate, winner is White",
-            };
-            commands.spawn((
-                Text::new(text),
-                Node {
-                    position_type: PositionType::Absolute,
-                    top: Val::Px(12.0),
-                    left: Val::Px(12.0),
-                    ..default()
-                },
-            ));
+            // get the current turn state, the opposite of that is who won, use this to set the termination outcome state.
+
+            if *turn_state.get() == TurnState::Player1Turn
+                && *game_mode_state.get() == GameMode::PlayerVsComputer
+            {
+                next_termination_state.set(TerminationOutcome::ComputerWinner(winner));
+            } else {
+                next_termination_state.set(TerminationOutcome::PlayerWinner(winner));
+            }
         }
         Outcome::Draw => {
-            commands.spawn((
-                Text::new("DRAW"),
-                Node {
-                    position_type: PositionType::Absolute,
-                    top: Val::Px(12.0),
-                    left: Val::Px(12.0),
-                    ..default()
-                },
-            ));
+            next_termination_state.set(TerminationOutcome::Draw);
         }
     }
     next_screen_state.set(ScreenState::GameTerminationScreen);

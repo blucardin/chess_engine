@@ -47,14 +47,14 @@ const BOARD_WEIGHTS: [f32; 8] = [0., 0.3, 0.6, 0.9, 0.9, 0.6, 0.3, 0.];
 
 pub type Transposition = [[[bool; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PieceColor {
     Black,
     White,
 }
 
 impl PieceColor {
-    fn opposite(&self) -> Self {
+    pub fn opposite(&self) -> Self {
         match self {
             PieceColor::Black => PieceColor::White,
             PieceColor::White => PieceColor::Black,
@@ -369,7 +369,7 @@ fn rank_to_y(rank: Rank) -> usize {
 
 #[derive(Clone)]
 pub struct Board {
-    player_1_color: PieceColor,
+    pub player_1_color: PieceColor,
     pub turn: PieceColor,
     pub squares: [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize],
     pub move_number: i32,
