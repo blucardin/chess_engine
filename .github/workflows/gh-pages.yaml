@@ -36,6 +36,11 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+
+      - name: Add the wasm32-unknown-unknown target
+        id: add_wasm_target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Build chess_gui into WASM
         id: build
         run: cargo build -p chess_gui --release --target wasm32-unknown-unknown --verbose
@@ -48,7 +53,7 @@ jobs:
 
 #      - run: cp CNAME dist/
       - name: Generate JS for WASM
-        id: wasmbindgen
+        id: wasm_bindgen
         run: wasm-bindgen --no-typescript --target web --out-dir ./out/ --out-name "chess_gui" ./target/wasm32-unknown-unknown/release/chess_gui.wasm
 
 
