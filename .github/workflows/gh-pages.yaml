@@ -48,7 +48,7 @@ jobs:
 
 #      - run: cp CNAME dist/
       - name: Generate JS for WASM
-        id: build
+        id: wasmbindgen
         run: wasm-bindgen --no-typescript --target web --out-dir ./out/ --out-name "chess_gui" ./target/wasm32-unknown-unknown/release/chess_gui.wasm
 
 
