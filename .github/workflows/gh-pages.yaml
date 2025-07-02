@@ -54,7 +54,7 @@ jobs:
 #      - run: cp CNAME dist/
       - name: Generate JS for WASM
         id: wasm_bindgen
-        run: wasm-bindgen --no-typescript --target web --out-dir ./out/ --out-name "chess_gui" ./target/wasm32-unknown-unknown/release/chess_gui.wasm
+        run: cargo install wasm-bindgen-cli && wasm-bindgen --no-typescript --target web --out-dir ./out/ --out-name "chess_gui" ./target/wasm32-unknown-unknown/release/chess_gui.wasm
 
 
       - name: Upload static files as artifact
