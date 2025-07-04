@@ -718,14 +718,14 @@ fn mouse_button_input(
             // let game_state = board_resource.board.outcome();
 
             // remove all the pieces
+            // for x in board_resource.board.generate_small_transposition() {
+            //     println!("{:?}", x);
+            // }
 
             // redraw all the pieces
             re_draw_pieces(commands, board_resource, window, asset_server, gui_pieces);
 
-            // for x in board_resource.board.generate_transposition() {
-            //     println!("{:?}", x);
-            // }
-
+            
             match game_mode.get() {
                 GameMode::PlayerVsComputer => {
                     next_computer_turn_state.set(TurnState::ComputerTurn);

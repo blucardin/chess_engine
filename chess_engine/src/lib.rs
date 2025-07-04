@@ -47,6 +47,10 @@ const BOARD_WEIGHTS: [f32; 8] = [0., 0.3, 0.6, 0.9, 0.9, 0.6, 0.3, 0.];
 
 pub type Transposition = [[[bool; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
 
+pub type SmallTransposition = [[[bool; 12]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
+
+pub type BoardSquares = [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize]; 
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PieceColor {
     Black,
@@ -76,7 +80,7 @@ impl PieceColor {
     }
 }
 
-#[derive(Encode, Decode, Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Encode, Decode, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[repr(i8)]
 pub enum PiecePerson {
     Pawn { first_move: Option<i32> } = 1,
@@ -160,7 +164,7 @@ impl PiecePerson {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Piece {
     color: PieceColor,
     piece_person: PiecePerson,
@@ -337,7 +341,7 @@ impl Move {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum Square {
     Filled(Piece),
     Empty,
@@ -350,6 +354,7 @@ pub enum MoveType {
     Take,
 }
 
+#[derive(Debug)]
 pub enum Outcome {
     Playing,
     Checkmate { winner: PieceColor },
@@ -371,7 +376,7 @@ fn rank_to_y(rank: Rank) -> usize {
 pub struct Board {
     pub player_1_color: PieceColor,
     pub turn: PieceColor,
-    pub squares: [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize],
+    pub squares: BoardSquares,
     pub move_number: i32,
     white_king_location: Coordinate,
     black_king_location: Coordinate,
@@ -621,8 +626,8 @@ impl Board {
                             for x in [5, 6] {
                                 let intermediate = Coordinate { x, y: row_to_check };
 
-                                // check that the intermediate squares are vacant,
-                                // check that the intermediate squares are not under attack
+                                // check that the intermediate Squares are vacant,
+                                // check that the intermediate Squares are not under attack
 
                                 if self.squares[intermediate.x as usize][intermediate.y as usize]
                                     != Square::Empty
@@ -653,8 +658,8 @@ impl Board {
                             for x in [2, 3] {
                                 let intermediate = Coordinate { x, y: row_to_check };
 
-                                // check that the intermediate squares are vacant,
-                                // check that the intermediate squares are not under attack
+                                // check that the intermediate Squares are vacant,
+                                // check that the intermediate Squares are not under attack
 
                                 if self.squares[intermediate.x as usize][intermediate.y as usize]
                                     != Square::Empty
@@ -719,10 +724,10 @@ impl Board {
         output
     }
 
-    fn locate_king(&self, search_color: PieceColor) -> Coordinate {
+    pub fn locate_king(&self, search_color: PieceColor) -> Coordinate {
         // println!("Locating king");
-        // println!("Second column of board: {:?}", self.squares[1]);
-        // println!("Fifth column of board: {:?}", self.squares[4]);
+        // println!("Second column of board: {:?}", self.Squares[1]);
+        // println!("Fifth column of board: {:?}", self.Squares[4]);
         match search_color {
             PieceColor::Black => {self.black_king_location}
             PieceColor::White => {self.white_king_location}
@@ -737,7 +742,7 @@ impl Board {
     }
 
 
-    fn check_check(&self, color: PieceColor, king_location: Coordinate) -> bool {
+    pub fn check_check(&self, color: PieceColor, king_location: Coordinate) -> bool {
         // println!(
         //     "Checking for any checks. King Location: {:?}",
         //     king_location
@@ -1025,6 +1030,22 @@ impl Board {
         self.turn = self.turn.opposite();
         self.move_number += 1;
     }
+    // 
+    // fn reverse_apply_move(&mut self, piece_move: Move, original_square: Square, overwritten_square: Square) {
+    //     match piece_move {
+    //         Move::Regular { initial_position, final_position, .. } | Move::Promote { initial_position, final_position, .. } => {
+    //             let fx = final_position.x as usize;
+    //             let fy = final_position.y as usize;
+    //             let ix = initial_position.x as usize;
+    //             let iy = initial_position.y as usize;
+    //             
+    //             self.Squares[ix][iy] = original_square;
+    //             self.Squares[fx][fy] = overwritten_square;
+    //         }
+    //         Move::Castle { .. } => {}
+    //         Move::EnPassant { .. } => {}
+    //     }
+    // }
 
     pub fn move_from_san(&self, san: San) -> Move {
         match san {
@@ -1268,6 +1289,40 @@ impl Board {
         game_state
     }
 
+    pub fn sufficient_material(&self) -> bool {
+        let mut black_bishop_or_knight = false;
+        let mut white_bishop_or_knight = false;
+        for  row in self.squares.iter() {
+            for square in row.iter() {
+                if let Square::Filled(piece) = square {
+                    match piece.piece_person {
+                        PiecePerson::Knight | PiecePerson::Bishop => {
+                            match piece.color {
+                                PieceColor::Black => {
+                                    if black_bishop_or_knight {
+                                        return true;
+                                    } else {
+                                        black_bishop_or_knight = true; 
+                                    }
+                                }
+                                PieceColor::White => {
+                                    if white_bishop_or_knight {
+                                        return true;
+                                    } else {
+                                        white_bishop_or_knight = true;
+                                    }
+                                }
+                            }
+                        }
+                        PiecePerson::King {..} => {}
+                        _ => {return true;}
+                    }
+                }
+            }
+        }
+        false
+    }
+
     pub fn generate_transposition(&self) -> Transposition {
         let mut output = [[[false; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
 
@@ -1380,6 +1435,45 @@ impl Board {
             }
         }
         output
+    }
+    
+    pub fn generate_small_transposition(&self) -> SmallTransposition {
+        let mut output = [[[false; 12]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
+        let black_bottom = self.player_1_color == PieceColor::Black;
+
+        let iterator = if !black_bottom {
+            Either::Left(self.squares.iter().enumerate())
+        } else {
+            Either::Right(self.squares.iter().rev().enumerate())
+        };
+
+        for (idx, row) in iterator {
+            let iterator2 = if !black_bottom {
+                Either::Left(row.iter().enumerate())
+            } else {
+                Either::Right(row.iter().rev().enumerate())
+            };
+
+            // so white is always at the bottom
+
+            for (idy, square) in iterator2 {
+                match square {
+                    Square::Filled(piece) => {
+                        
+                        let mut piece_index = piece.piece_person.get_index(); 
+                        
+                        if piece.color == PieceColor::Black {
+                            piece_index += 6;
+                        }
+                        
+                        output[idx][idy][piece_index] = true;
+                    }
+                    Square::Empty | Square::Boundary => {}
+                }
+            }
+        }
+        output
+        
     }
 
     pub fn natural_score(&self) -> f32 {
@@ -1560,7 +1654,7 @@ impl Board {
     pub fn new(player_1_color: PieceColor) -> Self {
         let player_2_color = player_1_color.opposite();
 
-        let mut squares: [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize] =
+        let mut squares: BoardSquares =
             [[Square::Empty; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
 
         for (idx, person) in [

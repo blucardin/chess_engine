@@ -744,16 +744,16 @@ impl ChessEngine {
 
         let output : Move  = match board.turn {
             PieceColor::Black => {
-
-                let mut min_value = f32::INFINITY;
-                let mut min_move = None;
-
+                
                 let mut possible_moves: Vec<(f32, Move)> = board.get_all_moves_for_turn()
                     .into_iter()
                     .map(|piece_move| (board.score_delta(&piece_move), piece_move))
                     .collect();
 
                 possible_moves.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // least to greatest
+
+                let mut min_value = f32::INFINITY;
+                let mut min_move = possible_moves[0].clone().1;
 
                 // println!("min");
                 for (score_delta, piece_move) in possible_moves {
@@ -775,23 +775,25 @@ impl ChessEngine {
                     // }
                     // println!("{:?}", eval);
 
-                    if eval < min_value {
+                    if eval < min_value { // this needs to be <= to make sure that it makes a move even when it knows that move will lead to its own checkmate
                         min_value = eval;
-                        min_move = Some(piece_move);
+                        min_move = piece_move;
                     }
 
                     // alpha/beta cut here is not possible because we are at root node
                 }
 
-                min_move.unwrap()
+                // match min_move {
+                //     None => {panic!("Weird option unwrap. Board: \n {}", board)},
+                //     Some(piece_move) => {piece_move}
+                // }
+                min_move
             }
             PieceColor::White => {
-                println!("max");
+                // println!("max");
+                
 
-                let mut max_value = -f32::INFINITY;
-                let mut max_move = None;
-
-                println!("{} {:?}",  board, board.get_all_moves_for_turn());
+                // println!("{} {:?}",  board, board.get_all_moves_for_turn());
 
                 let mut possible_moves: Vec<(f32, Move)> = board.get_all_moves_for_turn()
                     .into_iter()
@@ -800,7 +802,10 @@ impl ChessEngine {
 
                 possible_moves.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // least to greatest
 
-                println!("possible_moves : {:?}", possible_moves);
+                let mut max_value = -f32::INFINITY;
+                let mut max_move = possible_moves[0].clone().1;
+
+                // println!("possible_moves : {:?}", possible_moves);
 
                 for (score_delta, piece_move) in possible_moves.into_iter().rev() { // greatest to least
                     // println!("max_move");
@@ -820,18 +825,23 @@ impl ChessEngine {
                     // for x in 0..depth {
                     //     print!("\t");
                     // }
-                    println!("{:?} {:?}", eval, piece_move);
+                    // println!("{:?} {:?}", eval, piece_move);
 
-                    if eval > max_value {
-                        println!("Updated max_move with {:?} {:?}", eval, piece_move);
+                    if eval > max_value { // this needs to be >= to make sure that it makes a move even when it knows that move will lead to its own checkmate
+                        // println!("Updated max_move with {:?} {:?}", eval, piece_move);
                         max_value = eval;
-                        max_move = Some(piece_move);
+                        max_move = piece_move;
                     }
 
                     // alpha/beta cut here is not possible because we are at root node
                 }
 
-                max_move.unwrap() // it put me in checkmate, but called computer function again, causing it to error website here.
+                // max_move.unwrap() // it put me in checkmate, but called computer function again, causing it to error website here.
+                // match max_move {
+                //     None => {panic!("Weird option unwrap. Board: \n {}", board)},
+                //     Some(piece_move) => {piece_move}
+                // }
+                max_move
             }
         };
 
@@ -850,7 +860,16 @@ impl ChessEngine {
         let mut min_value = f32::INFINITY;
 
         if depth == 1 {
-            for piece_move in board.get_all_moves_for_turn() {
+
+            let possible_moves = board.get_all_moves_for_turn();
+            
+            if possible_moves.len() == 0 {
+                if !board.check_check(board.turn, board.locate_king(board.turn)) {
+                    return DRAW_VALUE;
+                }
+            }
+            
+            for piece_move in possible_moves {
 
                 let new_value = board_value + board.score_delta(&piece_move);
 
@@ -869,6 +888,7 @@ impl ChessEngine {
                     beta = min_value;
                 }
             }
+            
             return min_value;
         }
 
@@ -877,6 +897,12 @@ impl ChessEngine {
             .into_iter()
             .map(|piece_move| (board.score_delta(&piece_move), piece_move))
             .collect();
+        // 
+        if possible_moves.len() == 0 {
+            if !board.check_check(board.turn, board.locate_king(board.turn)) { // todo: maybe rewrite this so that the mapping happens after the check if == 0
+                return DRAW_VALUE;
+            }
+        }
 
         possible_moves.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // least to greatest
 
@@ -915,7 +941,16 @@ impl ChessEngine {
         let mut max_value = -f32::INFINITY;
 
         if depth == 1 {
-            for piece_move in board.get_all_moves_for_turn() {
+            
+            let possible_moves = board.get_all_moves_for_turn();
+
+            if possible_moves.len() == 0 {
+                if !board.check_check(board.turn, board.locate_king(board.turn)) {
+                    return -DRAW_VALUE;
+                }
+            }
+
+            for piece_move in possible_moves {
 
                 let new_value = board_value + board.score_delta(&piece_move);
 
@@ -943,6 +978,12 @@ impl ChessEngine {
             .into_iter()
             .map(|piece_move| (board.score_delta(&piece_move), piece_move))
             .collect();
+        
+        if possible_moves.len() == 0 {
+            if !board.check_check(board.turn, board.locate_king(board.turn)) {
+                return -DRAW_VALUE;
+            }
+        }
 
         possible_moves.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // least to greatest
 
@@ -969,6 +1010,12 @@ impl ChessEngine {
             }
         }
 
+        // if max_value == -f32::INFINITY {
+        //     if !board.check_check(board.turn, board.locate_king(board.turn)) {
+        //         return 0.;
+        //     }
+        // }
+
         max_value
     }
 
@@ -983,6 +1030,8 @@ impl ChessEngine {
         }
     }
 }
+
+const DRAW_VALUE: f32 = f32::MAX;
 
 // #[derive(Debug)]
 // enum MyError {

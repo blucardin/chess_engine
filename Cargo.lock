@@ -1605,6 +1605,7 @@ dependencies = [
  "criterion",
  "pgn-reader 0.27.0",
  "quick_cache",
+ "rand 0.9.1",
 ]
 
 [[package]]
