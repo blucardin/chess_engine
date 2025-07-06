@@ -1,10 +1,18 @@
 use std::iter::Rev;
 use std::slice::Iter;
 // use crate::board_evaluator::BoardEvaluator;
-use chess_engine::{Board, Coordinate, Move, PieceColor, Transposition};
+use chess_engine::{Board, Coordinate, Move, PieceColor, PieceWeights, Transposition};
 use quick_cache::unsync::Cache;
 
 mod board_evaluator;
+
+const DEFAULT_PIECE_WEIGHTS: PieceWeights = PieceWeights {
+    pawn: 1.0,
+    knight: 2.5,
+    bishop: 3.0,
+    rook: 4.0,
+    queen: 8.0,
+};
 
 pub struct ChessEngine {
     // evaluator: BoardEvaluator,
@@ -12,6 +20,7 @@ pub struct ChessEngine {
     leaf_nodes_visited: i32, 
     cache_hits: i32, 
     cache_misses: i32,
+    pub weights: PieceWeights,
 }
 
 impl ChessEngine {
@@ -431,7 +440,7 @@ impl ChessEngine {
         if depth == 0 {
             // println!("eval_min");
             self.leaf_nodes_visited += 1;
-            return board.natural_score();
+            return board.natural_score(&self.weights);
         }
 
         let mut beta = beta;
@@ -478,7 +487,7 @@ impl ChessEngine {
         if depth == 0 {
             // println!("eval_min");
             self.leaf_nodes_visited += 1;
-            return board.natural_score();
+            return board.natural_score(&self.weights);
         }
 
         let mut alpha = alpha;
@@ -547,7 +556,7 @@ impl ChessEngine {
                     // }
                     // println!("{:?}", piece_move);
 
-                    let new_value = board_value + board.score_delta(&piece_move);
+                    let new_value = board_value + board.score_delta(&piece_move, &self.weights);
 
                     let mut board = board.clone();
                     board.apply_move(&piece_move);
@@ -582,7 +591,7 @@ impl ChessEngine {
                     //     print!("\t");
                     // }
                     // println!("{:?}", piece_move);
-                    let new_value = board_value + board.score_delta(&piece_move);
+                    let new_value = board_value + board.score_delta(&piece_move, &self.weights);
 
                     let mut board = board.clone();
                     board.apply_move(&piece_move);
@@ -624,7 +633,7 @@ impl ChessEngine {
         if depth == 1 {
             for piece_move in board.get_all_moves_for_turn() {
 
-                let new_value = board_value + board.score_delta(&piece_move);
+                let new_value = board_value + board.score_delta(&piece_move, &self.weights);
 
                 self.leaf_nodes_visited += 1;
                 let eval = new_value;
@@ -647,7 +656,7 @@ impl ChessEngine {
         // println!("min");
         for piece_move in board.get_all_moves_for_turn() {
 
-            let new_value = board_value + board.score_delta(&piece_move);
+            let new_value = board_value + board.score_delta(&piece_move, &self.weights);
 
             let mut board = board.clone();
             board.apply_move(&piece_move);
@@ -681,7 +690,7 @@ impl ChessEngine {
         if depth == 1 {
             for piece_move in board.get_all_moves_for_turn() {
 
-                let new_value = board_value + board.score_delta(&piece_move);
+                let new_value = board_value + board.score_delta(&piece_move, &self.weights);
 
                 self.leaf_nodes_visited += 1;
                 let eval= new_value;
@@ -705,7 +714,7 @@ impl ChessEngine {
 
         for piece_move in board.get_all_moves_for_turn() {
 
-            let new_value = board_value + board.score_delta(&piece_move);
+            let new_value = board_value + board.score_delta(&piece_move, &self.weights);
 
             let mut board = board.clone();
             board.apply_move(&piece_move);
@@ -744,10 +753,10 @@ impl ChessEngine {
 
         let output : Move  = match board.turn {
             PieceColor::Black => {
-                
+
                 let mut possible_moves: Vec<(f32, Move)> = board.get_all_moves_for_turn()
                     .into_iter()
-                    .map(|piece_move| (board.score_delta(&piece_move), piece_move))
+                    .map(|piece_move| (board.score_delta(&piece_move, &self.weights), piece_move))
                     .collect();
 
                 possible_moves.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // least to greatest
@@ -791,13 +800,13 @@ impl ChessEngine {
             }
             PieceColor::White => {
                 // println!("max");
-                
+
 
                 // println!("{} {:?}",  board, board.get_all_moves_for_turn());
 
                 let mut possible_moves: Vec<(f32, Move)> = board.get_all_moves_for_turn()
                     .into_iter()
-                    .map(|piece_move| (board.score_delta(&piece_move), piece_move))
+                    .map(|piece_move| (board.score_delta(&piece_move, &self.weights), piece_move))
                     .collect();
 
                 possible_moves.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // least to greatest
@@ -862,16 +871,16 @@ impl ChessEngine {
         if depth == 1 {
 
             let possible_moves = board.get_all_moves_for_turn();
-            
+
             if possible_moves.len() == 0 {
                 if !board.check_check(board.turn, board.locate_king(board.turn)) {
                     return DRAW_VALUE;
                 }
             }
-            
+
             for piece_move in possible_moves {
 
-                let new_value = board_value + board.score_delta(&piece_move);
+                let new_value = board_value + board.score_delta(&piece_move, &self.weights);
 
                 self.leaf_nodes_visited += 1;
                 let eval = new_value;
@@ -888,16 +897,16 @@ impl ChessEngine {
                     beta = min_value;
                 }
             }
-            
+
             return min_value;
         }
 
         // println!("min");
         let mut possible_moves: Vec<(f32, Move)> = board.get_all_moves_for_turn()
             .into_iter()
-            .map(|piece_move| (board.score_delta(&piece_move), piece_move))
+            .map(|piece_move| (board.score_delta(&piece_move, &self.weights), piece_move))
             .collect();
-        // 
+        //
         if possible_moves.len() == 0 {
             if !board.check_check(board.turn, board.locate_king(board.turn)) { // todo: maybe rewrite this so that the mapping happens after the check if == 0
                 return DRAW_VALUE;
@@ -941,7 +950,7 @@ impl ChessEngine {
         let mut max_value = -f32::INFINITY;
 
         if depth == 1 {
-            
+
             let possible_moves = board.get_all_moves_for_turn();
 
             if possible_moves.len() == 0 {
@@ -952,7 +961,7 @@ impl ChessEngine {
 
             for piece_move in possible_moves {
 
-                let new_value = board_value + board.score_delta(&piece_move);
+                let new_value = board_value + board.score_delta(&piece_move, &self.weights);
 
                 self.leaf_nodes_visited += 1;
                 let eval= new_value;
@@ -976,9 +985,9 @@ impl ChessEngine {
 
         let mut possible_moves: Vec<(f32, Move)> = board.get_all_moves_for_turn()
             .into_iter()
-            .map(|piece_move| (board.score_delta(&piece_move), piece_move))
+            .map(|piece_move| (board.score_delta(&piece_move, &self.weights), piece_move))
             .collect();
-        
+
         if possible_moves.len() == 0 {
             if !board.check_check(board.turn, board.locate_king(board.turn)) {
                 return -DRAW_VALUE;
@@ -1027,6 +1036,7 @@ impl ChessEngine {
             leaf_nodes_visited: 0,
             cache_hits: 0,
             cache_misses: 0,
+            weights: DEFAULT_PIECE_WEIGHTS,
         }
     }
 }

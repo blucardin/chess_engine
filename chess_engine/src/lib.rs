@@ -49,7 +49,17 @@ pub type Transposition = [[[bool; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM 
 
 pub type SmallTransposition = [[[bool; 12]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
 
-pub type BoardSquares = [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize]; 
+pub type BoardSquares = [[Square; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize];
+
+// pub type PieceWeights = [f32 ; 5];
+
+pub struct PieceWeights {
+    pub pawn: f32, 
+    pub knight: f32,
+    pub bishop: f32,
+    pub rook: f32,
+    pub queen: f32,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PieceColor {
@@ -148,16 +158,27 @@ impl PiecePerson {
         }
     }
 
-    fn value(&self) -> f32 {
+    fn value(&self, weights : &PieceWeights) -> f32 {
         match self {
-            PiecePerson::Pawn { .. } => 1.,
-            PiecePerson::Rook { .. } => 4.,
-            PiecePerson::Knight => 2.,
-            PiecePerson::Bishop => 3.,
-            PiecePerson::Queen => 5.,
-            PiecePerson::King { .. } => panic!("King has no value"),
+            PiecePerson::Pawn { .. } => {weights.pawn}
+            PiecePerson::Rook { .. } => {weights.rook}
+            PiecePerson::Knight => {weights.knight}
+            PiecePerson::Bishop => {weights.bishop}
+            PiecePerson::Queen => {weights.queen}
+            PiecePerson::King { .. } => {panic!("No value for king.")}
         }
     }
+
+    // [1., 4., 2., 3. 5.]
+    //     match self {
+    //         PiecePerson::Pawn { .. } => 1.,
+    //         PiecePerson::Rook { .. } => 4.,
+    //         PiecePerson::Knight => 2.,
+    //         PiecePerson::Bishop => 3.,
+    //         PiecePerson::Queen => 5.,
+    //         PiecePerson::King { .. } => panic!("King has no value"),
+    //     }
+    // }
 
     fn get_uci_name(&self) -> String {
         String::from(["p", "r", "n", "b", "q", "k"][self.get_index()])
@@ -220,9 +241,9 @@ impl Coordinate {
         format!("{}{}", self.x, self.y)
     }
 
-    pub fn value(&self, piece_person: PiecePerson, color: PieceColor) -> f32 {
+    pub fn value(&self, piece_person: PiecePerson, color: PieceColor, weights: &PieceWeights) -> f32 {
         color.convert_signed(
-            piece_person.value() + BOARD_WEIGHTS[self.x as usize] + BOARD_WEIGHTS[self.y as usize],
+            piece_person.value(weights) + BOARD_WEIGHTS[self.x as usize] + BOARD_WEIGHTS[self.y as usize],
         )
     }
 }
@@ -1302,7 +1323,7 @@ impl Board {
                                     if black_bishop_or_knight {
                                         return true;
                                     } else {
-                                        black_bishop_or_knight = true; 
+                                        black_bishop_or_knight = true;
                                     }
                                 }
                                 PieceColor::White => {
@@ -1476,7 +1497,7 @@ impl Board {
         
     }
 
-    pub fn natural_score(&self) -> f32 {
+    pub fn natural_score(&self, weights : &PieceWeights) -> f32 {
         let mut output: f32 = 0.;
         let mut black_king_found = false;
         let mut white_king_found = false;
@@ -1490,7 +1511,7 @@ impl Board {
                         }
                     } else {
                         let value =
-                            piece.piece_person.value() + BOARD_WEIGHTS[idx] + BOARD_WEIGHTS[idy];
+                            piece.piece_person.value(&weights) + BOARD_WEIGHTS[idx] + BOARD_WEIGHTS[idy];
                         // println!("value:{}", value);
                         output += piece.color.convert_signed(value);
                     }
@@ -1508,7 +1529,7 @@ impl Board {
         output
     }
 
-    pub fn score_delta(&self, piece_move: &Move) -> f32 {
+    pub fn score_delta(&self, piece_move: &Move, weights : &PieceWeights) -> f32 {
         match piece_move {
             Move::Regular {
                 initial_position,
@@ -1535,7 +1556,7 @@ impl Board {
                                 };
                             } else {
                                 output -= final_position
-                                    .value(taken_piece.piece_person, taken_piece.color);
+                                    .value(taken_piece.piece_person, taken_piece.color, weights);
                             }
                         } else {
                             panic!("Move is take, but there is no piece to take.")
@@ -1547,8 +1568,8 @@ impl Board {
                         return output;
                     }
 
-                    output -= initial_position.value(piece.piece_person, piece.color);
-                    output += final_position.value(piece.piece_person, piece.color);
+                    output -= initial_position.value(piece.piece_person, piece.color, weights);
+                    output += final_position.value(piece.piece_person, piece.color, weights);
 
                     output
                 } else {
@@ -1578,7 +1599,7 @@ impl Board {
                             };
                         } else {
                             output -=
-                                final_position.value(taken_piece.piece_person, taken_piece.color);
+                                final_position.value(taken_piece.piece_person, taken_piece.color, weights);
                         }
                     } else {
                         panic!("Move is take, but there is no piece to take.")
@@ -1586,8 +1607,8 @@ impl Board {
                 }
 
                 // self.turn is the same as the pawn's color
-                output -= initial_position.value(PiecePerson::Pawn { first_move: None }, self.turn);
-                output += final_position.value(*new_piece_person, self.turn);
+                output -= initial_position.value(PiecePerson::Pawn { first_move: None }, self.turn, weights);
+                output += final_position.value(*new_piece_person, self.turn, weights);
 
                 output
             }
@@ -1619,21 +1640,21 @@ impl Board {
                         rooks_final_position = rooks_initial_position + (3, 0);
                     }
                 }
-                rooks_final_position.value(PiecePerson::Rook { moved: true }, self.turn)
-                    - rooks_initial_position.value(PiecePerson::Rook { moved: true }, self.turn)
+                rooks_final_position.value(PiecePerson::Rook { moved: true }, self.turn, weights)
+                    - rooks_initial_position.value(PiecePerson::Rook { moved: true }, self.turn, weights)
             }
             Move::EnPassant {
                 initial_position,
                 final_position,
             } => {
                 // final - initial - value of taken piece
-                final_position.value(PiecePerson::Pawn { first_move: None }, self.turn)
-                    - initial_position.value(PiecePerson::Pawn { first_move: None }, self.turn)
+                final_position.value(PiecePerson::Pawn { first_move: None }, self.turn, weights)
+                    - initial_position.value(PiecePerson::Pawn { first_move: None }, self.turn, weights)
                     - Coordinate {
                         x: final_position.x,
                         y: initial_position.y,
                     }
-                    .value(PiecePerson::Pawn { first_move: None }, self.turn.opposite())
+                    .value(PiecePerson::Pawn { first_move: None }, self.turn.opposite(), weights)
             }
         }
     }
@@ -1744,6 +1765,16 @@ mod tests {
 
     #[test]
     fn test_move_delta_against_regular_board_eval() {
+
+        const DEFAULT_PIECE_WEIGHTS: PieceWeights = PieceWeights {
+            pawn: 1.0,
+            knight: 2.0,
+            bishop: 3.0,
+            rook: 4.0,
+            queen: 5.0,
+        };
+        //     [
+        // }1., 4., 2., 3., 5.];
         struct MoveCounter {
             value: f32,
             board: Board,
@@ -1763,19 +1794,19 @@ mod tests {
 
             fn begin_game(&mut self) {
                 self.board = Board::new(PieceColor::White);
-                self.value = self.board.natural_score();
+                self.value = self.board.natural_score(&DEFAULT_PIECE_WEIGHTS);
             }
 
             fn san(&mut self, san_plus: SanPlus) {
                 let piece_move = self.board.move_from_san(san_plus.san);
                 // println!("piece_move {:?}", piece_move);
                 // println!("board {}", self.board);
-                let score_delta= self.board.score_delta(&piece_move);
+                let score_delta= self.board.score_delta(&piece_move, &DEFAULT_PIECE_WEIGHTS);
 
                 self.value += score_delta;
 
                 self.board.apply_move(&piece_move);
-                let natural_score = self.board.natural_score();
+                let natural_score = self.board.natural_score(&DEFAULT_PIECE_WEIGHTS);
 
                 let epsilon = 0.0000030;
 
