@@ -39,7 +39,7 @@ impl Plugin for Game {
                 button_system.run_if(in_state(ScreenState::HomeScreen)),
                 button_system.run_if(in_state(ScreenState::GameTerminationScreen)),
                 mouse_button_input
-                    .run_if(input_just_pressed(MouseButton::Left))
+                    .run_if(screen_interacted)
                     .run_if(not(in_state(TurnState::ComputerTurn)))
                     .run_if(in_state(ScreenState::GameScreen)),
                 computer_move.run_if(in_state(TurnState::ComputerTurn)),
@@ -71,6 +71,10 @@ impl Plugin for Game {
             tear_down_termination_screen,
         );
     }
+}
+
+fn screen_interacted(touches: Res<Touches>, button_input: Res<ButtonInput<MouseButton>>) -> bool {
+    input_just_pressed(MouseButton::Left)(button_input) || touches.any_just_pressed()
 }
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
@@ -473,7 +477,7 @@ fn setup_termination_screen(
                             game_mode: GameMode::PlayerVsPlayer,
                             next_screen_state: ScreenState::HomeScreen,
                         },
-                       children![Text::new("Homescreen")]
+                        children![Text::new("Homescreen")]
                     ),
                 ]
             )
@@ -594,6 +598,7 @@ fn mouse_button_input(
     mut next_computer_turn_state: ResMut<NextState<TurnState>>,
     turn_state: Res<State<TurnState>>,
     game_mode: Res<State<GameMode>>,
+    touches: Res<Touches>,
 ) {
     let width = window.width();
     let height = window.height();
@@ -601,163 +606,221 @@ fn mouse_button_input(
     let size_x = width / BOARD_TILE_DIM as f32;
     let size_y = height / BOARD_TILE_DIM as f32;
 
-    if let Some(click_position) = window.cursor_position() {
-        // convert click_position to board position
-        let board_click_position = Coordinate {
-            x: (click_position.x / size_x) as isize,
-            y: (click_position.y / size_y) as isize,
-        };
+    let mut optional_click_position: Option<Vec2> = window.cursor_position();
 
-        let mut moved = false;
+    for touch in touches.iter_just_pressed() {
+        optional_click_position = Some(touch.position());
+    }
 
-        if !promotions.is_empty() {
-            for promotion in promotions.iter() {
-                if promotion.board_position == board_click_position {
-                    board_resource.board.apply_move(&promotion.piece_move);
+    let click_position = optional_click_position
+        .unwrap_or_else(|| panic!("System run when no click or touch detected on screen."));
 
-                    // despawn all the move picker elements
-                    for promotion_picker in promotion_pickers.iter() {
-                        commands.entity(promotion_picker).despawn();
-                    }
+    // convert click_position to board position
+    let board_click_position = Coordinate {
+        x: (click_position.x / size_x) as isize,
+        y: (click_position.y / size_y) as isize,
+    };
 
-                    moved = true;
-                    break;
+    let mut moved = false;
+
+    if !promotions.is_empty() {
+        for promotion in promotions.iter() {
+            if promotion.board_position == board_click_position {
+                board_resource.board.apply_move(&promotion.piece_move);
+
+                // despawn all the move picker elements
+                for promotion_picker in promotion_pickers.iter() {
+                    commands.entity(promotion_picker).despawn();
                 }
-            }
-
-            if !moved {
-                return;
-            }
-        }
-
-        for possible_move in possible_moves.iter() {
-            if board_click_position == possible_move.highlight_square {
-                if let Move::Promote {
-                    initial_position,
-                    final_position,
-                    move_type,
-                    ..
-                } = possible_move.piece_move
-                {
-                    // remove all the highlights
-                    current_highlights
-                        .iter()
-                        .for_each(|current_highlight| commands.entity(current_highlight).despawn());
-
-                    let going_up = board_resource.board.pawn_going_up();
-                    let direction: isize = if going_up { -1 } else { 1 };
-
-                    for (idx, piece_person) in POSSIBLE_PAWN_PROMOTES.iter().enumerate() {
-                        let picker_position_x = final_position.x as usize;
-                        let picker_position_y =
-                            (final_position.y + ((-1 * direction) * idx as isize)) as usize;
-
-                        let transform = generate_transform_for_board_gui(
-                            width,
-                            height,
-                            size_x,
-                            size_y,
-                            picker_position_x,
-                            picker_position_y,
-                        );
-
-                        // don't use highlight, use another marker component so things don't get lost
-
-                        commands.spawn((
-                            Highlight,
-                            Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
-                            MeshMaterial2d(materials.add(PROMOTION_BACKGROUND_COLOR)),
-                            transform,
-                        ));
-
-                        commands.spawn((
-                            PromotionPicker {
-                                piece_move: Move::Promote {
-                                    initial_position,
-                                    final_position,
-                                    move_type,
-                                    piece_person: *piece_person,
-                                },
-                                board_position: Coordinate {
-                                    x: picker_position_x as isize,
-                                    y: picker_position_y as isize,
-                                },
-                            },
-                            Sprite {
-                                image: asset_server.load(format_piece_filename(
-                                    board_resource.board.turn.file_string(),
-                                    piece_person.file_string(),
-                                )),
-                                custom_size: Some(Vec2::new(size_x, size_y)),
-                                ..default()
-                            },
-                            transform,
-                        ));
-                    }
-                    return;
-                }
-
-                // // remove all the highlights
-                // current_highlights
-                //     .iter()
-                //     .for_each(|current_highlight| commands.entity(current_highlight).despawn());
-
-                board_resource.board.apply_move(&possible_move.piece_move);
 
                 moved = true;
                 break;
             }
         }
 
-        // remove all the highlights
-        current_highlights
-            .iter()
-            .for_each(|current_highlight| commands.entity(current_highlight).despawn());
+        if !moved {
+            return;
+        }
+    }
 
-        if moved {
-            // let game_state = board_resource.board.outcome();
+    for possible_move in possible_moves.iter() {
+        if board_click_position == possible_move.highlight_square {
+            if let Move::Promote {
+                initial_position,
+                final_position,
+                move_type,
+                ..
+            } = possible_move.piece_move
+            {
+                // remove all the highlights
+                current_highlights
+                    .iter()
+                    .for_each(|current_highlight| commands.entity(current_highlight).despawn());
 
-            // remove all the pieces
-            // for x in board_resource.board.generate_small_transposition() {
-            //     println!("{:?}", x);
-            // }
+                let going_up = board_resource.board.pawn_going_up();
+                let direction: isize = if going_up { -1 } else { 1 };
 
-            // redraw all the pieces
-            re_draw_pieces(commands, board_resource, window, asset_server, gui_pieces);
+                for (idx, piece_person) in POSSIBLE_PAWN_PROMOTES.iter().enumerate() {
+                    let picker_position_x = final_position.x as usize;
+                    let picker_position_y =
+                        (final_position.y + ((-1 * direction) * idx as isize)) as usize;
 
-            
-            match game_mode.get() {
-                GameMode::PlayerVsComputer => {
-                    next_computer_turn_state.set(TurnState::ComputerTurn);
+                    let transform = generate_transform_for_board_gui(
+                        width,
+                        height,
+                        size_x,
+                        size_y,
+                        picker_position_x,
+                        picker_position_y,
+                    );
+
+                    // don't use highlight, use another marker component so things don't get lost
+
+                    commands.spawn((
+                        Highlight,
+                        Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
+                        MeshMaterial2d(materials.add(PROMOTION_BACKGROUND_COLOR)),
+                        transform,
+                    ));
+
+                    commands.spawn((
+                        PromotionPicker {
+                            piece_move: Move::Promote {
+                                initial_position,
+                                final_position,
+                                move_type,
+                                piece_person: *piece_person,
+                            },
+                            board_position: Coordinate {
+                                x: picker_position_x as isize,
+                                y: picker_position_y as isize,
+                            },
+                        },
+                        Sprite {
+                            image: asset_server.load(format_piece_filename(
+                                board_resource.board.turn.file_string(),
+                                piece_person.file_string(),
+                            )),
+                            custom_size: Some(Vec2::new(size_x, size_y)),
+                            ..default()
+                        },
+                        transform,
+                    ));
                 }
-                GameMode::PlayerVsPlayer => {
-                    let current_turn_state = turn_state.get();
-                    match turn_state.get() {
-                        TurnState::Player1Turn => {
-                            next_computer_turn_state.set(TurnState::Player2Turn);
-                        }
-                        TurnState::Player2Turn => {
-                            next_computer_turn_state.set(TurnState::Player1Turn);
-                        }
-                        TurnState::ComputerTurn => {
-                            panic!(
-                                "In wrong state for mouse movement {:?}, ",
-                                current_turn_state
-                            )
-                        }
+                return;
+            }
+
+            // // remove all the highlights
+            // current_highlights
+            //     .iter()
+            //     .for_each(|current_highlight| commands.entity(current_highlight).despawn());
+
+            board_resource.board.apply_move(&possible_move.piece_move);
+
+            moved = true;
+            break;
+        }
+    }
+
+    // remove all the highlights
+    current_highlights
+        .iter()
+        .for_each(|current_highlight| commands.entity(current_highlight).despawn());
+
+    if moved {
+        // let game_state = board_resource.board.outcome();
+
+        // remove all the pieces
+        // for x in board_resource.board.generate_small_transposition() {
+        //     println!("{:?}", x);
+        // }
+
+        // redraw all the pieces
+        re_draw_pieces(commands, board_resource, window, asset_server, gui_pieces);
+
+        match game_mode.get() {
+            GameMode::PlayerVsComputer => {
+                next_computer_turn_state.set(TurnState::ComputerTurn);
+            }
+            GameMode::PlayerVsPlayer => {
+                let current_turn_state = turn_state.get();
+                match turn_state.get() {
+                    TurnState::Player1Turn => {
+                        next_computer_turn_state.set(TurnState::Player2Turn);
+                    }
+                    TurnState::Player2Turn => {
+                        next_computer_turn_state.set(TurnState::Player1Turn);
+                    }
+                    TurnState::ComputerTurn => {
+                        panic!(
+                            "In wrong state for mouse movement {:?}, ",
+                            current_turn_state
+                        )
                     }
                 }
             }
-
-            return;
         }
 
-        if let Some(moves) = board_resource
-            .board
-            .get_possible_moves(board_click_position)
-        {
+        return;
+    }
+
+    if let Some(moves) = board_resource
+        .board
+        .get_possible_moves(board_click_position)
+    {
+        commands.spawn((
+            Highlight,
+            Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
+            MeshMaterial2d(materials.add(POSSIBLE_MOVE_HIGHLIGHT_COLOR)),
+            generate_transform_for_board_gui(
+                width,
+                height,
+                size_x,
+                size_y,
+                board_click_position.x as usize,
+                board_click_position.y as usize,
+            ),
+        ));
+
+        let mut promotion_coordinates: Vec<Coordinate> = vec![];
+
+        for piece_move in moves {
+            let highlight_coordinate = match piece_move {
+                Move::Regular { final_position, .. } | Move::EnPassant { final_position, .. } => {
+                    final_position
+                }
+                Move::Promote { final_position, .. } => {
+                    if !promotion_coordinates.contains(&final_position) {
+                        promotion_coordinates.push(final_position);
+                        final_position
+                    } else {
+                        continue;
+                    }
+                }
+                Move::Castle { ref side } => {
+                    let final_y = if board_resource.board.pawn_going_up() {
+                        BOARD_TILE_DIM - 1
+                    } else {
+                        0
+                    };
+                    let final_x = match side {
+                        Side::QueenSide => 2,
+                        Side::KingsSide => BOARD_TILE_DIM - 2,
+                    };
+
+                    Coordinate {
+                        x: final_x,
+                        y: final_y,
+                    }
+                }
+            };
+
             commands.spawn((
                 Highlight,
+                PossibleMove {
+                    piece_move,
+                    highlight_square: highlight_coordinate,
+                },
                 Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
                 MeshMaterial2d(materials.add(POSSIBLE_MOVE_HIGHLIGHT_COLOR)),
                 generate_transform_for_board_gui(
@@ -765,64 +828,11 @@ fn mouse_button_input(
                     height,
                     size_x,
                     size_y,
-                    board_click_position.x as usize,
-                    board_click_position.y as usize,
+                    highlight_coordinate.x as usize,
+                    highlight_coordinate.y as usize,
                 ),
             ));
-
-            let mut promotion_coordinates: Vec<Coordinate> = vec![];
-
-            for piece_move in moves {
-                let highlight_coordinate = match piece_move {
-                    Move::Regular { final_position, .. }
-                    | Move::EnPassant { final_position, .. } => final_position,
-                    Move::Promote { final_position, .. } => {
-                        if !promotion_coordinates.contains(&final_position) {
-                            promotion_coordinates.push(final_position);
-                            final_position
-                        } else {
-                            continue;
-                        }
-                    }
-                    Move::Castle { ref side } => {
-                        let final_y = if board_resource.board.pawn_going_up() {
-                            BOARD_TILE_DIM - 1
-                        } else {
-                            0
-                        };
-                        let final_x = match side {
-                            Side::QueenSide => 2,
-                            Side::KingsSide => BOARD_TILE_DIM - 2,
-                        };
-
-                        Coordinate {
-                            x: final_x,
-                            y: final_y,
-                        }
-                    }
-                };
-
-                commands.spawn((
-                    Highlight,
-                    PossibleMove {
-                        piece_move,
-                        highlight_square: highlight_coordinate,
-                    },
-                    Mesh2d(meshes.add(Rectangle::new(size_x, size_y))),
-                    MeshMaterial2d(materials.add(POSSIBLE_MOVE_HIGHLIGHT_COLOR)),
-                    generate_transform_for_board_gui(
-                        width,
-                        height,
-                        size_x,
-                        size_y,
-                        highlight_coordinate.x as usize,
-                        highlight_coordinate.y as usize,
-                    ),
-                ));
-            }
         }
-    } else {
-        println!("Cursor is not in the game window.");
     }
 }
 
@@ -830,7 +840,7 @@ fn computer_move(
     // buttons: Res<ButtonInput<MouseButton>>,
     mut board_resource: NonSendMut<ChessGameResource>,
     window: Single<&mut Window>,
-    mut commands: Commands,
+    commands: Commands,
     gui_pieces: Query<Entity, With<PieceMarker>>,
     asset_server: Res<AssetServer>,
     mut next_computer_turn_state: ResMut<NextState<TurnState>>,
