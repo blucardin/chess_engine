@@ -56,7 +56,7 @@ jobs:
         id: wasm_bindgen
         run: |
           which wasm-bindgen || cargo install wasm-bindgen-cli
-          cargo install wasm-bindgen-cli && wasm-bindgen --no-typescript --target web --out-dir ./out/ --out-name "chess_gui" ./target/wasm32-unknown-unknown/release/chess_gui.wasm
+          wasm-bindgen --no-typescript --target web --out-dir ./out/ --out-name "chess_gui" ./target/wasm32-unknown-unknown/release/chess_gui.wasm
 
 
       - name: Upload static files as artifact
