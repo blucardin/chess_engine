@@ -9,32 +9,60 @@
         /*    height: 100%;*/
         /*}*/
 
-        html, body {
-            margin: auto;
-            /*padding: 0;*/
-            /*height: 100%;*/
-            /*width: 100%;*/
-            /*display: flex;*/
+        html{
+            margin: 0;
+            height: 100%;
+            background: #000;
+            display: flex;
             justify-content: center;
             align-items: center;
-            background: #000; /* optional */
+        }
+
+        body {
             width: min(100vw, 100vh);
             aspect-ratio: 1 / 1;
-            display: block;
+        }
+
+        .loader {
+            margin: 30vh auto auto;
+            width: 200px;
+            aspect-ratio: 1;
+            color: #ffffff;
+            border: 2px solid;
+            box-sizing: border-box;
+            background:
+                    repeating-conic-gradient(rgba(255, 255, 255, 0.5) 0 90deg, rgba(0, 0, 0, 0.5) 0 180deg),
+                    repeating-conic-gradient(#ffffff 0 90deg, rgba(255, 255, 255, 0.5) 0 180deg);
+            background-size: 50px 50px;
+            background-position: 0 0;
+            animation: l7 3s infinite;
+        }
+        @keyframes l7{
+            100% {background-position: 0px 100px,50px 0px}
         }
 
     </style>
 </head>
+<div class="loader" id="loader"></div>
 
-<body style="margin: 0px;">
+<body>
+
 <script type="module">
     import init from './chess_gui.js'
 
-    init().catch((error) => {
+    const loader = document.getElementById("loader");
+
+    init().then(() => {
+        // Remove loader after successful init
+        loader.remove();
+    })
+        .catch((error) => {
         if (!error.message.startsWith("Using exceptions for control flow, don't mind me. This isn't actually an error!")) {
             throw error;
         }
     });
+
+
 </script>
 </body>
 
