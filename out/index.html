@@ -1,6 +1,31 @@
 <!doctype html>
 <html lang="en">
 
+<head>
+    <meta charset="utf-8">
+    <style>
+        /*html, body {*/
+        /*    margin: 0;*/
+        /*    height: 100%;*/
+        /*}*/
+
+        html, body {
+            margin: auto;
+            /*padding: 0;*/
+            /*height: 100%;*/
+            /*width: 100%;*/
+            /*display: flex;*/
+            justify-content: center;
+            align-items: center;
+            background: #000; /* optional */
+            width: min(100vw, 100vh);
+            aspect-ratio: 1 / 1;
+            display: block;
+        }
+
+    </style>
+</head>
+
 <body style="margin: 0px;">
 <script type="module">
     import init from './chess_gui.js'
