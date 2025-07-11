@@ -749,7 +749,7 @@ impl ChessEngine {
             println!("Recursion depth must be greater than 0");
         }
 
-        let board_value = 0.;
+        let board_value = board.natural_score(&DEFAULT_PIECE_WEIGHTS); 
 
         let output : Move  = match board.turn {
             PieceColor::Black => {
@@ -762,7 +762,7 @@ impl ChessEngine {
                 possible_moves.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // least to greatest
 
                 let mut min_value = f32::INFINITY;
-                let mut min_move = possible_moves[0].clone().1;
+                let mut min_move = possible_moves.get(0).unwrap_or_else(|| panic!("Board: \n{} \n {:?}", board, possible_moves)).clone().1;;
 
                 // println!("min");
                 for (score_delta, piece_move) in possible_moves {
@@ -777,7 +777,7 @@ impl ChessEngine {
                     let mut board = board.clone();
                     board.apply_move(&piece_move);
 
-                    let eval= self.max_natural_ab_no_eval(&board, depth - 1, -f32::INFINITY, min_value, new_value);
+                    let eval= self.max_natural_ab_no_eval_sort_id(&board, depth - 1, -f32::INFINITY, min_value, new_value);
 
                     // for x in 0..depth {
                     //     print!("\t");
@@ -812,7 +812,7 @@ impl ChessEngine {
                 possible_moves.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // least to greatest
 
                 let mut max_value = -f32::INFINITY;
-                let mut max_move = possible_moves[0].clone().1;
+                let mut max_move = possible_moves.get(0).unwrap_or_else(|| panic!("Board: \n {} \n {:?}", board, possible_moves)).clone().1;
 
                 // println!("possible_moves : {:?}", possible_moves);
 
@@ -828,7 +828,7 @@ impl ChessEngine {
                     let mut board = board.clone();
                     board.apply_move(&piece_move);
 
-                    let eval = self.min_natural_ab_no_eval(&board, depth - 1, max_value, f32::INFINITY, new_value);
+                    let eval = self.min_natural_ab_no_eval_sort_id(&board, depth - 1, max_value, f32::INFINITY, new_value);
 
 
                     // for x in 0..depth {
@@ -1041,7 +1041,7 @@ impl ChessEngine {
     }
 }
 
-const DRAW_VALUE: f32 = f32::MAX;
+const DRAW_VALUE: f32 = 0.;// ;
 
 // #[derive(Debug)]
 // enum MyError {
@@ -1081,4 +1081,13 @@ mod tests {
         println!("Model against itself did {} moves. With {} differences.", board.move_number, differences); // it takes about 41 moves to get to 7 differences.
     }
 }
+
+// [" ", " ", " ", " ", " ", " ", " ", " "]
+// [" ", " ", " ", " ", " ", " ", " ", " "]
+// [" ", " ", " ", " ", " ", " ", "♔", " "]
+// [" ", " ", " ", "♛", " ", " ", " ", " "]
+// [" ", " ", " ", "♝", " ", " ", " ", "♜"]
+// [" ", "♚", " ", " ", " ", " ", " ", " "]
+// [" ", " ", " ", " ", " ", " ", " ", " "]
+// [" ", " ", " ", " ", " ", " ", " ", " "]
 

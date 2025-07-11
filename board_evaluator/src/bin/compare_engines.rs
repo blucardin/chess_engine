@@ -68,26 +68,36 @@ fn main() {
                             };
                                 
                             board.apply_move(
-                                &engine.next_best_move_natural_minimax_ab_no_eval_sort_id(&board, 3, ), //[1., 4., 2., 3., 5.] 
+                                &engine.next_best_move_natural_minimax_ab_no_eval_sort_id(&board, 3, ), //[1., 4., 2., 3., 5.]
                             );
                         }
                         Turn::SecondAlgorithmTurn => {
 
                             engine.weights = PieceWeights {
                                 pawn: 1.0,
-                                knight: 2.0,
-                                bishop: 3.0,
-                                rook: 4.0,
-                                queen: 5.0,
+                                knight: 3.0,
+                                bishop: 3.5,
+                                rook: 5.0,
+                                queen: 10.0,
                             };
                             
                             board.apply_move(
-                                &engine.next_best_move_natural_minimax_ab_no_eval_sort_id(&board, 4, ), // [1., 3., 2., 2., 8.]
+                                &engine.next_best_move_natural_minimax_ab_no_eval_sort_id(&board, 3, ), // [1., 3., 2., 2., 8.]
                                 // pawn, rook, knight, bishop, queen
                             );
                         }
                     }
+                    // println!("Compare Engine Board: \n{}", board);
+                    // println!("Compare Engine Turn: {:?}", board.turn);
 
+                    if past_boards.contains(&(board.squares, turn.clone())) {
+                        loops += 1;
+                        board.apply_move(&board.get_all_moves_for_turn().choose(&mut rng).unwrap());
+                        turn = turn.flip();
+                    } else {
+                        past_boards.insert((board.squares, turn.clone()));
+                    }
+                    
                     match board.outcome() {
                         Outcome::Playing => num_moves += 1,
                         Outcome::Checkmate { .. } => {
@@ -109,14 +119,6 @@ fn main() {
                     }
 
                     turn = turn.flip();
-
-                    if past_boards.contains(&(board.squares, turn.clone())) {
-                        loops += 1;
-                        board.apply_move(&board.get_all_moves_for_turn().choose(&mut rng).unwrap());
-                        turn = turn.flip();
-                    }
-
-                    past_boards.insert((board.squares, turn.clone()));
 
                     moves_for_initial_board += 1;
                     if moves_for_initial_board > max_moves {
@@ -153,11 +155,11 @@ fn main() {
     );
 }
 
-// ["♔", "♗", " ", " ", " ", " ", " ", " "]
-// [" ", " ", " ", " ", " ", "♛", " ", " "]
 // [" ", " ", " ", " ", " ", " ", " ", " "]
-// [" ", "♟", "♙", "♟", " ", " ", "♞", " "]
-// [" ", " ", "♞", " ", " ", " ", "♟", " "]
-// [" ", " ", " ", "♟", " ", " ", " ", "♟"]
-// [" ", " ", "♚", "♜", " ", " ", " ", " "]
-// [" ", " ", " ", " ", " ", "♝", " ", " "]
+// [" ", " ", " ", " ", " ", " ", " ", "♔"]
+// [" ", " ", " ", " ", " ", " ", " ", " "]
+// [" ", " ", " ", " ", " ", " ", " ", " "]
+// [" ", " ", "♙", " ", "♗", " ", "♙", "♙"]
+// [" ", " ", "♕", " ", " ", " ", " ", " "]
+// ["♚", " ", " ", " ", " ", " ", " ", " "]
+// [" ", " ", " ", " ", " ", " ", " ", " "]
