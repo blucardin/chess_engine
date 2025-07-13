@@ -32,7 +32,13 @@ impl Plugin for Game {
         app.insert_state(TurnState::Player1Turn);
         app.insert_state(GameMode::PlayerVsComputer);
         app.insert_state(TerminationOutcome::Draw);
+        app.insert_state(EvaluationState::PlayerOrComputerEval); 
         app.add_systems(Startup, setup_camera);
+
+        // app.add_systems(OnExit(TurnState::Player1Turn), check_if_game_over);
+        // app.add_systems(OnExit(TurnState::ComputerTurn), check_if_game_over);
+        // app.add_systems(OnExit(TurnState::Player2Turn), check_if_game_over);
+
         app.add_systems(
             Update,
             (
@@ -41,8 +47,14 @@ impl Plugin for Game {
                 mouse_button_input
                     .run_if(screen_interacted)
                     .run_if(not(in_state(TurnState::ComputerTurn)))
-                    .run_if(in_state(ScreenState::GameScreen)),
-                computer_move.run_if(in_state(TurnState::ComputerTurn)),
+                    .run_if(in_state(ScreenState::GameScreen))
+                    .run_if(in_state(EvaluationState::PlayerOrComputerEval)),
+                computer_move
+                    .run_if(in_state(TurnState::ComputerTurn))
+                    .run_if(in_state(ScreenState::GameScreen))
+                    .run_if(in_state(EvaluationState::PlayerOrComputerEval)),
+                check_if_game_over
+                    .run_if(in_state(EvaluationState::CheckIfGameOverEval))
             ),
         );
 
@@ -57,9 +69,6 @@ impl Plugin for Game {
         // app.add_systems(OnEnter(TurnState::ComputerTurn), re_draw_pieces);
         // app.add_systems(OnEnter(TurnState::Player1Turn), re_draw_pieces);
         // app.add_systems(OnEnter(TurnState::Player2Turn), re_draw_pieces);
-        app.add_systems(OnExit(TurnState::Player1Turn), check_if_game_over);
-        app.add_systems(OnExit(TurnState::ComputerTurn), check_if_game_over);
-        app.add_systems(OnExit(TurnState::Player2Turn), check_if_game_over);
 
         app.add_systems(
             OnEnter(ScreenState::GameTerminationScreen),
@@ -82,6 +91,12 @@ enum TurnState {
     ComputerTurn,
     Player1Turn,
     Player2Turn,
+}
+
+#[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+enum EvaluationState {
+    PlayerOrComputerEval,
+    CheckIfGameOverEval
 }
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
@@ -599,6 +614,7 @@ fn mouse_button_input(
     turn_state: Res<State<TurnState>>,
     game_mode: Res<State<GameMode>>,
     touches: Res<Touches>,
+    mut next_eval_state: ResMut<NextState<EvaluationState>>,
 ) {
     let width = window.width();
     let height = window.height();
@@ -738,6 +754,8 @@ fn mouse_button_input(
         // redraw all the pieces
         re_draw_pieces(commands, board_resource, window, asset_server, gui_pieces);
 
+        next_eval_state.set(EvaluationState::CheckIfGameOverEval); 
+        
         match game_mode.get() {
             GameMode::PlayerVsComputer => {
                 next_computer_turn_state.set(TurnState::ComputerTurn);
@@ -844,7 +862,12 @@ fn computer_move(
     gui_pieces: Query<Entity, With<PieceMarker>>,
     asset_server: Res<AssetServer>,
     mut next_computer_turn_state: ResMut<NextState<TurnState>>,
+    screen_state: Res<State<ScreenState>>,
+    mut next_eval_state: ResMut<NextState<EvaluationState>>,
 ) {
+
+    // println!("Computer Move");
+    // println!("Screen: {:?}", screen_state.get());
     // let computer_move = board_resource.board.find_computer_move(board_resource.board.get_all_moves_for_turn());
 
     // let board = board_resource.board.clone();
@@ -868,6 +891,7 @@ fn computer_move(
 
     // redraw all the pieces
     next_computer_turn_state.set(TurnState::Player1Turn);
+    next_eval_state.set(EvaluationState::CheckIfGameOverEval);
 }
 
 fn check_if_game_over(
@@ -878,7 +902,12 @@ fn check_if_game_over(
     turn_state: Res<State<TurnState>>,
     game_mode_state: Res<State<GameMode>>,
     mut next_termination_state: ResMut<NextState<TerminationOutcome>>,
+    mut next_eval_state: ResMut<NextState<EvaluationState>>,
 ) {
+
+    // println!("Check If Game Over");
+    next_eval_state.set(EvaluationState::PlayerOrComputerEval);
+
     let game_state = board_resource.board.outcome();
 
     match game_state {
@@ -902,4 +931,5 @@ fn check_if_game_over(
     }
     next_screen_state.set(ScreenState::GameTerminationScreen);
     // next_turn_state.set(TurnState::None);
+    // println!("Game Over");
 }
