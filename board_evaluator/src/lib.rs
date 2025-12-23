@@ -540,16 +540,18 @@ impl ChessEngine {
             println!("Recursion depth must be greater than 0");
         }
 
-        let board_value = 0.; // board.natural_score(); We don't have to evaluate this, since it remains a constant.
+        let board_value = board.natural_score(&DEFAULT_PIECE_WEIGHTS); // board.natural_score(); We don't have to evaluate this, since it remains a constant.
 
         let output : Move  = match board.turn {
             PieceColor::Black => {
+                
+                let possible_moves = board.get_all_moves_for_turn();
 
                 let mut min_value = f32::INFINITY;
-                let mut min_move = None;
+                let mut min_move = possible_moves[0].clone();
 
                 // println!("min");
-                for piece_move in board.get_all_moves_for_turn() {
+                for piece_move in possible_moves {
                     // println!("min_move");
                     // for x in 0..depth {
                     //     print!("\t");
@@ -570,21 +572,23 @@ impl ChessEngine {
 
                     if eval < min_value {
                         min_value = eval;
-                        min_move = Some(piece_move);
+                        min_move = piece_move;
                     }
 
                     // alpha/beta cut here is not possible because we are at root node
                 }
 
-                min_move.unwrap()
+                min_move
             }
             PieceColor::White => {
 
+                let possible_moves = board.get_all_moves_for_turn();
+
                 let mut max_value = -f32::INFINITY;
-                let mut max_move = None;
+                let mut max_move = possible_moves[0].clone();
 
                 // println!("max");
-                for piece_move in board.get_all_moves_for_turn() {
+                for piece_move in possible_moves {
                     // println!("max_move");
                     //
                     // for x in 0..depth {
@@ -606,13 +610,13 @@ impl ChessEngine {
 
                     if eval > max_value {
                         max_value = eval;
-                        max_move = Some(piece_move);
+                        max_move = piece_move;
                     }
 
                     // alpha/beta cut here is not possible because we are at root node
                 }
 
-                max_move.unwrap() // it put me in checkmate, but called computer function again, causing it to error website here.
+                max_move // it put me in checkmate, but called computer function again, causing it to error website here.
             }
         };
 
@@ -631,7 +635,15 @@ impl ChessEngine {
         let mut min_value = f32::INFINITY;
 
         if depth == 1 {
-            for piece_move in board.get_all_moves_for_turn() {
+            let possible_moves = board.get_all_moves_for_turn();
+
+            if possible_moves.len() == 0 {
+                if !board.check_check(board.turn, board.locate_king(board.turn)) {
+                    return DRAW_VALUE;
+                }
+            }
+
+            for piece_move in possible_moves {
 
                 let new_value = board_value + board.score_delta(&piece_move, &self.weights);
 
@@ -688,7 +700,16 @@ impl ChessEngine {
         let mut max_value = -f32::INFINITY;
 
         if depth == 1 {
-            for piece_move in board.get_all_moves_for_turn() {
+            
+            let possible_moves = board.get_all_moves_for_turn();
+
+            if possible_moves.len() == 0 {
+                if !board.check_check(board.turn, board.locate_king(board.turn)) {
+                    return DRAW_VALUE;
+                }
+            }
+            
+            for piece_move in possible_moves {
 
                 let new_value = board_value + board.score_delta(&piece_move, &self.weights);
 

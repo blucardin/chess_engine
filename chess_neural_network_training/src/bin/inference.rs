@@ -1,11 +1,12 @@
 use std::path::PathBuf;
-use burn::backend::{Autodiff, Cuda};
-use burn::backend::cuda::CudaDevice;
+use burn::backend::{Autodiff, Wgpu};
+use burn::backend::wgpu::WgpuDevice;
 use burn::data::dataloader::batcher::Batcher;
 use burn::data::dataset::{Dataset, SqliteDatasetError};
 use burn::prelude::{Backend, Config, Module};
-use burn::record::{CompactRecorder, Recorder};
+use burn::record::{CompactRecorder, FullPrecisionSettings, PrettyJsonFileRecorder, Recorder};
 use burn::tensor::activation::softmax;
+use burn::tensor::{PrintOptions, set_print_options};
 use r2d2::Pool;
 use r2d2_sqlite::rusqlite::OpenFlags;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -34,20 +35,30 @@ pub fn infer<B: Backend>(model: &Model<B>, device: &B::Device, item: Transpositi
 
 fn main() {
 
-    type MyBackend = Cuda<f32, i32>;
+    type MyBackend = Wgpu<f32, i32>;
 
-    let device = burn::backend::cuda::CudaDevice::default();
+    let device = burn::backend::wgpu::WgpuDevice::default();
     // println!("CUDA Device: {}", device.index);
-    let artifact_dir = "C:\\Users\\bluca\\RustroverProjects\\chess_engine\\conv_model_sm";
+    let artifact_dir = "positional_model";
 
     let config = TrainingConfig::load(format!("{artifact_dir}/config.json"))
         .expect("Config should exist for the model; run train first");
-    let record: ModelRecord<MyBackend>  = CompactRecorder::new()
-        .load(format!("{artifact_dir}/model").into(), &device)
+    let record: ModelRecord<MyBackend>  = PrettyJsonFileRecorder::<FullPrecisionSettings>::new()
+        .load(format!("{artifact_dir}/model.json").into(), &device)
         .expect("Trained model should exist; run train first");
 
     let model = config.model.init::<>(&device).load_record(record);
 
+    // let print_options = PrintOptions {
+    //     threshold: 10000,
+    //     edge_items: 0,
+    //     precision: Some(5),
+    //     
+    // };
+    // 
+    // set_print_options(print_options);
+
+    println!("{}", model.conv1.weight.val());
 
     let blank_board = Board::new(PieceColor::White);
     let sqlite_flags = OpenFlags::SQLITE_OPEN_READ_ONLY;
@@ -70,7 +81,7 @@ fn main() {
             &model,
             &device,
             TranspositionItem {
-                transposition: transposition_board.generate_transposition(),
+                transposition: transposition_board.generate_small_transposition(),
                 label: white_winner,
             }
         );

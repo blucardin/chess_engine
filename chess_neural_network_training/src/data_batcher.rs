@@ -20,7 +20,7 @@ impl<B: Backend> Batcher<B, TranspositionItem, TranspositionBatch<B>> for Transp
             .iter()
             .map(|item| TensorData::from(item.transposition).convert::<B::BoolElem>())
             .map(|data| Tensor::<B, 3>::from_data(data, device))
-            .map(|tensor| tensor.reshape([1, 8, 8, 10]))
+            .map(|tensor| tensor.reshape([1, 8, 8, 12]))
             .collect();
 
         let targets = items

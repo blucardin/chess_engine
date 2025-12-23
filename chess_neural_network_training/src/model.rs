@@ -10,18 +10,19 @@ use burn::{
     prelude::*,
 };
 use burn::nn::conv::{Conv2d, Conv2dConfig, Conv3d, Conv3dConfig};
+use chess_engine::BOARD_TILE_DIM;
 
 #[derive(Module, Debug)]
 pub struct Model<B: Backend> {
-    dropout: Dropout,
-    conv1: Conv2d<B>,
-    conv2: Conv2d<B>,
-    linear1: Linear<B>,
+    // dropout: Dropout,
+    pub conv1: Conv2d<B>,
+    // conv2: Conv2d<B>,
+    // linear1: Linear<B>,
     // linear2: Linear<B>,
     // linear3: Linear<B>,
-    linear4: Linear<B>,
-    linear5: Linear<B>,
-    activation: Relu,
+    // linear4: Linear<B>,
+    // linear5: Linear<B>,
+    // activation: Relu,
     // sigmoid: Sigmoid,
 }
 
@@ -36,16 +37,18 @@ impl ModelConfig {
     /// Returns the initialized model.
     pub fn init<B: Backend>(&self, device: &B::Device) -> Model<B> {
         Model {
-            activation: Relu::new(),
-            conv1: Conv2dConfig::new([10, 32], [3, 3]).init(device),
-            conv2: Conv2dConfig::new([32, 32], [3, 3]).init(device),
-            linear1: LinearConfig::new(512, 512).init(device),
+            // activation: Relu::new(),
+            conv1: Conv2dConfig::new([12, 2], [BOARD_TILE_DIM as usize, BOARD_TILE_DIM as usize])
+                .with_groups(2)
+                .init(device),
+            // conv2: Conv2dConfig::new([32, 32], [3, 3]).init(device),
+            // linear1: LinearConfig::new(512, 512).init(device),
             // linear2: LinearConfig::new(1024, 512).init(device),
             // linear3: LinearConfig::new(2048, 1024).init(device),
-            linear4: LinearConfig::new(512, 128).init(device),
-            linear5: LinearConfig::new(128, 2).init(device),
+            // linear4: LinearConfig::new(512, 128).init(device),
+            // linear5: LinearConfig::new(128, 2).init(device),
             // sigmoid: Sigmoid::new(),    // todo: replace with hard sigmoid
-            dropout: DropoutConfig::new(self.dropout).init(),
+            // dropout: DropoutConfig::new(self.dropout).init(),
         }
     }
 }
@@ -62,19 +65,19 @@ impl<B: Backend> Model<B> {
         // let x = images.reshape([batch_size, height * width * fields]);
         // 64, 640
 
-        let x = images.reshape([batch_size, 10, height, width]);
+        let x = images.reshape([batch_size, 12, height, width]); // todo: replace this 12 with fields
 
         let x = self.conv1.forward(x); // [batch_size, 8, _, _]
         
-        let x = self.conv2.forward(x); // [batch_size, 16, _, _]
-
-        let x = self.activation.forward(x);
-
-        let x = x.reshape([batch_size, 32 * 4 * 4]);
-
-        let x = self.linear1.forward(x);
-        let x = self.dropout.forward(x);
-        let x = self.activation.forward(x);
+        // let x = self.conv2.forward(x); // [batch_size, 16, _, _]
+        //
+        // let x = self.activation.forward(x);
+        //
+        let x = x.reshape([batch_size, 2]);
+        //
+        // let x = self.linear1.forward(x);
+        // let x = self.dropout.forward(x);
+        // let x = self.activation.forward(x);
 
         // let x = self.linear2.forward(x);
         // let x = self.dropout.forward(x);
@@ -83,12 +86,12 @@ impl<B: Backend> Model<B> {
         // let x = self.linear3.forward(x);
         // let x = self.dropout.forward(x);
         // let x = self.activation.forward(x);
-
-        let x = self.linear4.forward(x);
-        let x = self.dropout.forward(x);
-        let x = self.activation.forward(x);
-
-        let x = self.linear5.forward(x); // [batch_size, num_classes]
+        //
+        // let x = self.linear4.forward(x);
+        // let x = self.dropout.forward(x);
+        // let x = self.activation.forward(x);
+        //
+        // let x = self.linear5.forward(x); // [batch_size, num_classes]
 
         // self.sigmoid.forward(x)
         

@@ -3,7 +3,7 @@ use burn::data::dataset::{
     Dataset, SqliteDatasetError
 };
 use chess_engine::move_serialization::{MovesAndLabelRaw, CONFIG};
-use chess_engine::{Board, Move, PieceColor, BOARD_TILE_DIM};
+use chess_engine::{Board, Move, PieceColor, SmallTransposition};
 use r2d2::Pool;
 use r2d2_sqlite::{
     rusqlite::OpenFlags,
@@ -18,7 +18,7 @@ use crate::MovesDone;
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TranspositionItem {
     /// Image as a 2D array of floats.
-    pub transposition: [[[bool; 10]; BOARD_TILE_DIM as usize]; BOARD_TILE_DIM as usize],
+    pub transposition: SmallTransposition,
 
     /// Label of the image.
     pub label: bool,
@@ -62,12 +62,13 @@ impl Dataset<TranspositionItem> for BoardDataset {
             MovesDone::MoreMoves => {panic!("Not supposed to happen")}
         };
         
-        if new_board.turn == PieceColor::Black {
-            white_winner = ! white_winner; 
-        }
+        // comment this out because small transposition doesn't convert all boards to move next is bottom
+        // if new_board.turn == PieceColor::Black {
+        //     white_winner = ! white_winner; 
+        // }
 
         Some(TranspositionItem {
-            transposition: new_board.generate_transposition(),
+            transposition: new_board.generate_small_transposition(),
             label: white_winner,
         })
     }

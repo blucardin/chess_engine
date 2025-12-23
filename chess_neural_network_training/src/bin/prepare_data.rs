@@ -96,6 +96,7 @@ impl Visitor for Looker<'_> {
         }
 
         let piece_move = self.board.move_from_san(san_plus.san);
+        // todo: add the line self.board.apply_move(piece_move);
         self.move_list.push(piece_move);
         // println!("{}", self.board);
         self.moves += 1;

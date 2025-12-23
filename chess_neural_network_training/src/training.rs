@@ -2,7 +2,7 @@ use burn::config::Config;
 use burn::data::dataloader::DataLoaderBuilder;
 use burn::optim::AdamConfig;
 use burn::prelude::Module;
-use burn::record::CompactRecorder;
+use burn::record::{CompactRecorder, PrettyJsonFileRecorder, FullPrecisionSettings};
 use burn::tensor::backend::AutodiffBackend;
 use burn::train::LearnerBuilder;
 use burn::train::metric::{AccuracyMetric, LossMetric};
@@ -14,11 +14,11 @@ use crate::transposition_dataset::SplitBoardDataset;
 pub struct TrainingConfig {
     pub model: ModelConfig,
     pub optimizer: AdamConfig,
-    #[config(default = 10)]
+    #[config(default = 2)]
     pub num_epochs: usize,
-    #[config(default = 256)]
-    pub batch_size: usize,
     #[config(default = 16)]
+    pub batch_size: usize,
+    #[config(default = 4)]
     pub num_workers: usize,
     #[config(default = 42)]
     pub seed: u64,
@@ -72,6 +72,6 @@ pub fn train<B: AutodiffBackend>(artifact_dir: &str, config: TrainingConfig, dev
     let model_trained = learner.fit(dataloader_train, dataloader_test);
 
     model_trained
-        .save_file(format!("{artifact_dir}/model"), &CompactRecorder::new())
+        .save_file(format!("{artifact_dir}/model"), &PrettyJsonFileRecorder::<FullPrecisionSettings>::new())
         .expect("Trained model should be saved successfully");
 }

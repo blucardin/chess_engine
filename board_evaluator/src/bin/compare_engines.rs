@@ -68,21 +68,21 @@ fn main() {
                             };
                                 
                             board.apply_move(
-                                &engine.next_best_move_natural_minimax_ab_no_eval_sort_id(&board, 3, ), //[1., 4., 2., 3., 5.]
+                                &engine.next_best_move_natural_minimax_ab_no_eval_sort_id(&board, 4, ), //[1., 4., 2., 3., 5.]
                             );
                         }
                         Turn::SecondAlgorithmTurn => {
 
                             engine.weights = PieceWeights {
                                 pawn: 1.0,
-                                knight: 3.0,
-                                bishop: 3.5,
-                                rook: 5.0,
-                                queen: 10.0,
+                                knight: 2.5,
+                                bishop: 3.0,
+                                rook: 4.0,
+                                queen: 8.0,
                             };
                             
                             board.apply_move(
-                                &engine.next_best_move_natural_minimax_ab_no_eval_sort_id(&board, 3, ), // [1., 3., 2., 2., 8.]
+                                &engine.next_best_move_natural_minimax_ab_no_eval(&board, 4, ), // [1., 3., 2., 2., 8.]
                                 // pawn, rook, knight, bishop, queen
                             );
                         }
