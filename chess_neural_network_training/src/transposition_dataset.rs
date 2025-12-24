@@ -3,7 +3,7 @@ use burn::data::dataset::{
     Dataset, SqliteDatasetError
 };
 use chess_engine::move_serialization::{MovesAndLabelRaw, CONFIG};
-use chess_engine::{Board, Move, PieceColor, BOARD_TILE_DIM};
+use chess_engine::Move;
 use r2d2::Pool;
 use r2d2_sqlite::{
     rusqlite::OpenFlags,
@@ -12,6 +12,8 @@ use r2d2_sqlite::{
 use serde::{Deserialize, Serialize};
 use serde_rusqlite::from_rows;
 use std::path::PathBuf;
+use chess_engine::board::{Board, BOARD_TILE_DIM};
+use chess_engine::piece::PieceColor;
 use crate::MovesDone;
 
 /// MNIST item.

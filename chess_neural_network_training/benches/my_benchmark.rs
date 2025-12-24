@@ -4,9 +4,9 @@ use r2d2::Pool;
 use r2d2_sqlite::rusqlite::OpenFlags;
 use r2d2_sqlite::SqliteConnectionManager;
 use chess_neural_network_training::*;
-use chess_engine::*;
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
-
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use chess_engine::board::Board;
+use chess_engine::piece::PieceColor;
 
 fn bench_data_access_strategies(c: &mut Criterion) {
 

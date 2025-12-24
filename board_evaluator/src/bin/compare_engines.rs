@@ -1,7 +1,9 @@
 use board_evaluator::ChessEngine;
-use chess_engine::{Board, BoardSquares, Coordinate, Outcome, PieceColor, PieceWeights, Square};
+use chess_engine::{BoardSquares, Outcome, PieceWeights};
 use rand::prelude::IndexedRandom;
 use std::collections::HashSet;
+use chess_engine::board::Board;
+use chess_engine::piece::PieceColor;
 
 #[derive(Clone, Eq, Hash, PartialEq)]
 enum Turn {

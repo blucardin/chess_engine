@@ -1,20 +1,20 @@
 use std::path::PathBuf;
-use burn::backend::{Autodiff, Cuda};
-use burn::backend::cuda::CudaDevice;
+use burn::backend::Cuda;
 use burn::data::dataloader::batcher::Batcher;
-use burn::data::dataset::{Dataset, SqliteDatasetError};
+use burn::data::dataset::SqliteDatasetError;
 use burn::prelude::{Backend, Config, Module};
 use burn::record::{CompactRecorder, Recorder};
 use burn::tensor::activation::softmax;
 use r2d2::Pool;
 use r2d2_sqlite::rusqlite::OpenFlags;
 use r2d2_sqlite::SqliteConnectionManager;
-use chess_engine::{Board, PieceColor};
+use chess_engine::board::Board;
+use chess_engine::piece::PieceColor;
 use chess_neural_network_training::data_batcher::TranspositionBatcher;
-use chess_neural_network_training::{get_sqlite_sorting, get_vec, make_vec};
+use chess_neural_network_training::{get_vec, make_vec};
 use chess_neural_network_training::model::{Model, ModelRecord};
 use chess_neural_network_training::training::TrainingConfig;
-use chess_neural_network_training::transposition_dataset::{SplitBoardDataset, TranspositionItem};
+use chess_neural_network_training::transposition_dataset::TranspositionItem;
 
 pub fn infer<B: Backend>(model: &Model<B>, device: &B::Device, item: TranspositionItem) {
 

@@ -1,5 +1,5 @@
 use chess_engine::move_serialization::{MovesAndLabelRaw, CONFIG};
-use chess_engine::{Board, Move, PieceColor};
+use chess_engine::Move;
 use pgn_reader::{BufferedReader, Outcome, SanPlus, Skip, Visitor};
 use shakmaty::san::Suffix; 
 use serde_rusqlite::*;
@@ -8,6 +8,8 @@ use std::io;
 use std::io::ErrorKind;
 use indicatif::ProgressBar;
 use r2d2_sqlite::rusqlite::{Connection, Statement};
+use chess_engine::board::Board;
+use chess_engine::piece::PieceColor;
 
 struct Looker<'a> {
     total_moves: u64, 

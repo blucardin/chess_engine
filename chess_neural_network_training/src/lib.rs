@@ -1,7 +1,8 @@
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use serde_rusqlite::from_rows;
-use chess_engine::{Board, Move};
+use chess_engine::Move;
+use chess_engine::board::Board;
 use chess_engine::move_serialization::{MovesAndLabelRaw, CONFIG};
 
 pub mod transposition_dataset;

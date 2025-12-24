@@ -1,8 +1,10 @@
-use std::iter::Rev;
-use std::slice::Iter;
 // use crate::board_evaluator::BoardEvaluator;
-use chess_engine::{Board, Coordinate, Move, PieceColor, PieceWeights, Transposition};
+use chess_engine::{Move, PieceWeights, Transposition};
 use quick_cache::unsync::Cache;
+// use crate::board_evaluator::BoardEvaluator;
+use chess_engine::board::Board;
+// use crate::board_evaluator::BoardEvaluator;
+use chess_engine::piece::PieceColor;
 
 mod board_evaluator;
 
@@ -762,7 +764,7 @@ impl ChessEngine {
                 possible_moves.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // least to greatest
 
                 let mut min_value = f32::INFINITY;
-                let mut min_move = possible_moves.get(0).unwrap_or_else(|| panic!("Board: \n{} \n {:?}", board, possible_moves)).clone().1;;
+                let mut min_move = possible_moves.get(0).unwrap_or_else(|| panic!("Board: \n{} \n {:?}", board, possible_moves)).clone().1;
 
                 // println!("min");
                 for (score_delta, piece_move) in possible_moves {

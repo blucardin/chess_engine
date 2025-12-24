@@ -1,7 +1,8 @@
-use chess_engine::{Board, PieceColor};
+use chess_engine::board::Board;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use pgn_reader::{BufferedReader, SanPlus, Skip, Visitor};
 use board_evaluator::ChessEngine;
+use chess_engine::piece::PieceColor;
 
 struct MoveCounter {
     board: Board,

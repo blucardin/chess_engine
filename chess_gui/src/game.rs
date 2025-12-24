@@ -1,12 +1,13 @@
 use bevy::color::palettes::basic::RED;
 use bevy::input::common_conditions::*;
 use bevy::prelude::*;
-use bevy::ui::widget::ImageNodeSize;
 use board_evaluator::ChessEngine;
 use chess_engine::Move;
 use chess_engine::*;
 use std::cmp::PartialEq;
-use std::process::Termination;
+use chess_engine::board::{Board, BOARD_TILE_DIM};
+use chess_engine::coordinate::Coordinate;
+use chess_engine::piece::{format_piece_filename, PieceColor, PiecePerson};
 
 pub const WHITE_TILE_COLOR: Color = Color::srgb_u8(254, 207, 159);
 
