@@ -53,7 +53,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("Move Generation");
     
-    for i in [2, 3, 4, 5].iter() {
+    for i in [7].iter() {
         group.throughput(Throughput::Elements(*i as u64));
         group.bench_with_input(BenchmarkId::from_parameter(i), i, |b, &i| {
             b.iter(|| {engine.next_best_move_natural_minimax_ab_no_eval_sort_id(&board, i)});

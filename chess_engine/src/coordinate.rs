@@ -1,4 +1,4 @@
-use crate::{PieceWeights, BOARD_WEIGHTS, FILES};
+use crate::{PieceWeights, SizeOfCoordinate, SizeOfOffset, BOARD_WEIGHTS, FILES};
 use std::ops;
 use bincode::{Decode, Encode};
 use crate::board::BOARD_TILE_DIM;
@@ -6,8 +6,8 @@ use crate::piece::{PieceColor, PiecePerson};
 
 #[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Coordinate {
-    pub x: isize, // todo: why is this isize again??
-    pub y: isize,
+    pub x: SizeOfCoordinate,
+    pub y: SizeOfCoordinate,
 }
 impl Coordinate {
     pub fn to_uci_coordinate(&self) -> String {
@@ -34,12 +34,22 @@ impl Coordinate {
     }
 }
 
-impl ops::Add<(isize, isize)> for Coordinate {
+// impl ops::Add<(SizeOfCoordinate, SizeOfCoordinate)> for Coordinate {
+//     type Output = Coordinate;
+//     fn add(self, rhs: (SizeOfCoordinate, SizeOfCoordinate)) -> Self::Output {
+//         Self::Output {
+//             x: self.x + rhs.0,
+//             y: self.y + rhs.1,
+//         }
+//     }
+// }
+
+impl ops::Add<(SizeOfOffset, SizeOfOffset)> for Coordinate {
     type Output = Coordinate;
-    fn add(self, rhs: (isize, isize)) -> Self::Output {
+    fn add(self, rhs: (SizeOfOffset, SizeOfOffset)) -> Self::Output {
         Self::Output {
-            x: self.x + rhs.0,
-            y: self.y + rhs.1,
+            x: (self.x as SizeOfOffset + rhs.0) as SizeOfCoordinate,
+            y: (self.y as SizeOfOffset + rhs.1) as SizeOfCoordinate,
         }
     }
 }

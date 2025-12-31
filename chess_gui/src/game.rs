@@ -126,8 +126,8 @@ fn generate_transform_for_board_gui(
     window_height: f32,
     tile_size_x: f32,
     tile_size_y: f32,
-    x: usize,
-    y: usize,
+    x: SizeOfCoordinate,
+    y: SizeOfCoordinate,
 ) -> Transform {
     Transform::from_xyz(
         -(window_width / 2.) + (x as f32 * tile_size_x) + (tile_size_x / 2.),
@@ -527,7 +527,7 @@ fn setup_board(
             };
 
             let transform =
-                generate_transform_for_board_gui(width, height, size_x, size_y, idx, idy);
+                generate_transform_for_board_gui(width, height, size_x, size_y, idx as SizeOfCoordinate, idy as SizeOfCoordinate);
 
             commands.spawn((
                 BoardTileMarker,
@@ -563,7 +563,7 @@ fn re_draw_pieces(
     for (idx, row) in board_resource.board.squares.iter().enumerate() {
         for (idy, square) in row.iter().enumerate() {
             let transform =
-                generate_transform_for_board_gui(width, height, size_x, size_y, idx, idy);
+                generate_transform_for_board_gui(width, height, size_x, size_y, idx as SizeOfCoordinate, idy as SizeOfCoordinate);
 
             if let Square::Filled(piece) = square {
                 commands.spawn((
@@ -634,8 +634,8 @@ fn mouse_button_input(
 
     // convert click_position to board position
     let board_click_position = Coordinate {
-        x: (click_position.x / size_x) as isize,
-        y: (click_position.y / size_y) as isize,
+        x: (click_position.x / size_x) as SizeOfCoordinate,
+        y: (click_position.y / size_y) as SizeOfCoordinate,
     };
 
     let mut moved = false;
@@ -675,12 +675,12 @@ fn mouse_button_input(
                     .for_each(|current_highlight| commands.entity(current_highlight).despawn());
 
                 let going_up = board_resource.board.pawn_going_up();
-                let direction: isize = if going_up { -1 } else { 1 };
+                let direction: SizeOfOffset = if going_up { -1 } else { 1 };
 
                 for (idx, piece_person) in POSSIBLE_PAWN_PROMOTES.iter().enumerate() {
-                    let picker_position_x = final_position.x as usize;
+                    let picker_position_x = final_position.x;
                     let picker_position_y =
-                        (final_position.y + ((-1 * direction) * idx as isize)) as usize;
+                        final_position.y + ((-1 * direction * (idx as SizeOfOffset))) as SizeOfCoordinate;
 
                     let transform = generate_transform_for_board_gui(
                         width,
@@ -709,8 +709,8 @@ fn mouse_button_input(
                                 piece_person: *piece_person,
                             },
                             board_position: Coordinate {
-                                x: picker_position_x as isize,
-                                y: picker_position_y as isize,
+                                x: picker_position_x as SizeOfCoordinate,
+                                y: picker_position_y as SizeOfCoordinate,
                             },
                         },
                         Sprite {
@@ -797,8 +797,8 @@ fn mouse_button_input(
                 height,
                 size_x,
                 size_y,
-                board_click_position.x as usize,
-                board_click_position.y as usize,
+                board_click_position.x,
+                board_click_position.y,
             ),
         ));
 
@@ -848,8 +848,8 @@ fn mouse_button_input(
                     height,
                     size_x,
                     size_y,
-                    highlight_coordinate.x as usize,
-                    highlight_coordinate.y as usize,
+                    highlight_coordinate.x,
+                    highlight_coordinate.y,
                 ),
             ));
         }

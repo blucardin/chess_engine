@@ -2,17 +2,13 @@ use crate::anti_move::AntiMove;
 use crate::coordinate::Coordinate;
 use crate::piece::{Piece, PieceColor, PiecePerson};
 use crate::piece_move::Move;
-use crate::{
-    BISHOP_SEARCH_OFFSETS, BOARD_WEIGHTS, BoardSquares, KING_SEARCH_OFFSETS, KNIGHT_SEARCH_OFFSETS,
-    MoveType, Outcome, POSSIBLE_PAWN_PROMOTES, PieceWeights, ROOK_SEARCH_OFFSETS, Side,
-    SmallTransposition, Square, Transposition,
-};
+use crate::{BISHOP_SEARCH_OFFSETS, BOARD_WEIGHTS, BoardSquares, KING_SEARCH_OFFSETS, KNIGHT_SEARCH_OFFSETS, MoveType, Outcome, POSSIBLE_PAWN_PROMOTES, PieceWeights, ROOK_SEARCH_OFFSETS, Side, SmallTransposition, Square, Transposition, SizeOfCoordinate, SizeOfOffset};
 use either::Either;
 use pgn_reader::{CastlingSide, San};
 use std::fmt;
 use std::mem::discriminant;
 
-pub const BOARD_TILE_DIM: isize = 8;
+pub const BOARD_TILE_DIM: SizeOfCoordinate = 8;
 
 #[derive(Clone)]
 pub struct Board {
@@ -27,14 +23,13 @@ pub struct Board {
 // custom implementation for unusual values
 impl Board {
     fn get_square_bounds_check(&self, position: &Coordinate) -> Square {
-        let x = position.x;
-        let y = position.y;
-        if (x < 0 || y < 0)
-            || (x >= self.squares.len() as isize || y >= self.squares[0].len() as isize)
+        let x = position.x as usize;
+        let y = position.y as usize;
+        if  x >= self.squares.len() || y >= self.squares[0].len()
         {
             Square::Boundary
         } else {
-            self.squares[x as usize][y as usize]
+            self.squares[x][y]
         }
     }
 
@@ -64,7 +59,7 @@ impl Board {
         }
     }
 
-    fn cast_ray(&self, position: &Coordinate, offsets: &[(isize, isize)]) -> Vec<Move> {
+    fn cast_ray(&self, position: &Coordinate, offsets: &[(SizeOfOffset, SizeOfOffset)]) -> Vec<Move> {
         let mut output = Vec::with_capacity(27);
         for offset in offsets {
             let mut sight = *position + *offset;
@@ -86,7 +81,7 @@ impl Board {
         output
     }
 
-    fn check_squares(&self, position: &Coordinate, offsets: &[(isize, isize)]) -> Vec<Move> {
+    fn check_squares(&self, position: &Coordinate, offsets: &[(SizeOfOffset, SizeOfOffset)]) -> Vec<Move> {
         let mut output = Vec::with_capacity(8);
         for offset in offsets {
             let sight = *position + *offset;
@@ -110,7 +105,6 @@ impl Board {
         initial_position: Coordinate,
         piece_person: &PiecePerson,
     ) -> Vec<Move> {
-        // todo: untested
         let mut output = Vec::new();
 
         match piece_person {
@@ -120,7 +114,7 @@ impl Board {
                 // println!("self.turn: {:?}", self.turn);
                 // println!("player_1_color: {:?}", self.player_1_color);
 
-                let direction: isize = if going_up { -1 } else { 1 };
+                let direction: SizeOfOffset = if going_up { -1 } else { 1 };
 
                 // Check if the pawn is on the last row of its direction, these become 3 separate moves, Knight, Rook, and Queen
 
@@ -235,7 +229,7 @@ impl Board {
                 output = self.check_squares(&initial_position, &KING_SEARCH_OFFSETS);
 
                 // determine if we are on the white or black side of the board
-                let row_to_check: isize = if self.pawn_going_up() {
+                let row_to_check = if self.pawn_going_up() {
                     BOARD_TILE_DIM - 1
                 } else {
                     0
@@ -344,7 +338,7 @@ impl Board {
                     // println!("self.turn: {:?}", self.turn);
                     // println!("player_1_color: {:?}", self.player_1_color);
 
-                    let direction: isize = if going_up { -1 } else { 1 };
+                    let direction: SizeOfOffset = if going_up { -1 } else { 1 };
 
                     // Check if the pawn is on the last row of its direction, these become 3 separate moves, Knight, Rook, and Queen
 
@@ -460,7 +454,7 @@ impl Board {
                     output = self.check_squares(&initial_position, &KING_SEARCH_OFFSETS);
 
                     // determine if we are on the white or black side of the board
-                    let row_to_check: isize = if self.pawn_going_up() {
+                    let row_to_check = if self.pawn_going_up() {
                         BOARD_TILE_DIM - 1
                     } else {
                         0
@@ -576,8 +570,8 @@ impl Board {
         for (idx, row) in self.squares.iter().enumerate() {
             for (idy, _) in row.iter().enumerate() {
                 if let Some(piece_moves) = self.get_possible_moves(Coordinate {
-                    x: idx as isize,
-                    y: idy as isize,
+                    x: idx as SizeOfCoordinate,
+                    y: idy as SizeOfCoordinate,
                 }) {
                     output.extend(piece_moves);
                 }
@@ -611,8 +605,8 @@ impl Board {
             .flat_map(|(idx, idy, piece)| {
                 self.get_possible_moves_unchecked(
                     Coordinate {
-                        x: idx as isize,
-                        y: idy as isize,
+                        x: idx as SizeOfCoordinate,
+                        y: idy as SizeOfCoordinate,
                     },
                     &piece,
                 )
@@ -700,7 +694,7 @@ impl Board {
         }
 
         let going_up = color == self.player_1_color;
-        let threatening_pawn_y_offset: isize = if going_up { -1 } else { 1 };
+        let threatening_pawn_y_offset: SizeOfOffset = if going_up { -1 } else { 1 };
         let offsets = [
             (-1, threatening_pawn_y_offset),
             (1, threatening_pawn_y_offset),
@@ -768,7 +762,7 @@ impl Board {
                 });
             }
             Move::Castle { side } => {
-                let row_to_act: isize = if self.pawn_going_up() {
+                let row_to_act = if self.pawn_going_up() {
                     BOARD_TILE_DIM - 1
                 } else {
                     0
@@ -790,7 +784,7 @@ impl Board {
 
                 match side {
                     Side::KingsSide => {
-                        let final_position = kings_position + (2, 0);
+                        let final_position = kings_position + (2 as SizeOfOffset, 0);
                         self.update_king_location(final_position);
 
                         self.replace_piece(&kings_position, &final_position, new_king_piece);
@@ -803,12 +797,12 @@ impl Board {
 
                         self.replace_piece(
                             &rooks_position,
-                            &(rooks_position + (-2, 0)),
+                            &(rooks_position + (-2 as SizeOfOffset, 0)),
                             new_rook_piece,
                         );
                     }
                     Side::QueenSide => {
-                        let final_position = kings_position + (-2, 0);
+                        let final_position = kings_position + (-2 as SizeOfOffset, 0);
                         self.update_king_location(final_position);
 
                         self.replace_piece(&kings_position, &final_position, new_king_piece);
@@ -821,7 +815,7 @@ impl Board {
 
                         self.replace_piece(
                             &rooks_position,
-                            &(rooks_position + (3, 0)),
+                            &(rooks_position + (3 as SizeOfOffset, 0)),
                             new_rook_piece,
                         );
                     }
@@ -972,8 +966,8 @@ impl Board {
                             if piece_person.compare_with_role(role) && color == self.turn {
                                 moves.extend(
                                     self.get_possible_moves(Coordinate {
-                                        x: idx as isize,
-                                        y: *idy as isize,
+                                        x: idx as SizeOfCoordinate,
+                                        y: *idy as SizeOfCoordinate,
                                     })
                                     .unwrap(),
                                 );
@@ -993,8 +987,8 @@ impl Board {
                             piece_person,
                         } = piece_move
                         {
-                            if final_position.x == to.file() as isize
-                                && final_position.y == crate::rank_to_y(to.rank()) as isize
+                            if final_position.x == to.file() as SizeOfCoordinate
+                                && final_position.y == crate::rank_to_y(to.rank()) as SizeOfCoordinate
                                 && (*move_type == MoveType::Take) == capture
                                 && piece_person.compare_with_role(role)
                             {
@@ -1014,8 +1008,8 @@ impl Board {
                             final_position,
                         } = piece_move
                         {
-                            if final_position.x == to.file() as isize
-                                && final_position.y == crate::rank_to_y(to.rank()) as isize
+                            if final_position.x == to.file() as SizeOfCoordinate
+                                && final_position.y == crate::rank_to_y(to.rank()) as SizeOfCoordinate
                             {
                                 move_to_apply = Some(piece_move);
                                 break;
@@ -1030,8 +1024,8 @@ impl Board {
                             move_type,
                         } = piece_move
                         {
-                            if final_position.x == to.file() as isize
-                                && final_position.y == crate::rank_to_y(to.rank()) as isize
+                            if final_position.x == to.file() as SizeOfCoordinate
+                                && final_position.y == crate::rank_to_y(to.rank()) as SizeOfCoordinate
                                 && (*move_type == MoveType::Take) == capture
                             {
                                 move_to_apply = Some(piece_move);
@@ -1237,13 +1231,13 @@ impl Board {
                                     // if it is on the fourth rank of its color and there is a pawn of opposite color next to it, enable en passant
                                     let real_coordinates = if !spin_board {
                                         Coordinate {
-                                            x: idx as isize,
-                                            y: idy as isize,
+                                            x: idx as SizeOfCoordinate,
+                                            y: idy as SizeOfCoordinate,
                                         }
                                     } else {
                                         Coordinate {
-                                            x: (BOARD_TILE_DIM - 1) - (idx as isize),
-                                            y: (BOARD_TILE_DIM - 1) - (idy as isize),
+                                            x: (BOARD_TILE_DIM - 1) - (idx as SizeOfCoordinate),
+                                            y: (BOARD_TILE_DIM - 1) - (idy as SizeOfCoordinate),
                                         }
                                     };
 
@@ -1260,7 +1254,7 @@ impl Board {
                                     if real_coordinates.y == row_of_passant {
                                         let opposite_color = piece.color.opposite();
 
-                                        for offset in [(1, 0), (-1, 0)] {
+                                        for offset in [(1 as SizeOfOffset, 0), (-1, 0)] {
                                             // println!("Left/Right square {:?}", self.get_square(&(real_coordinates + offset)));
 
                                             if let Square::Filled(Piece {
@@ -1473,14 +1467,14 @@ impl Board {
                 output
             }
             Move::Castle { side } => {
-                let row_to_act: isize = if self.pawn_going_up() {
+                let row_to_act = if self.pawn_going_up() {
                     BOARD_TILE_DIM - 1
                 } else {
                     0
                 };
 
                 let rooks_initial_position;
-                let rooks_final_position;
+                let rooks_final_position: Coordinate;
 
                 match side {
                     Side::KingsSide => {
@@ -1489,7 +1483,7 @@ impl Board {
                             x: BOARD_TILE_DIM - 1,
                             y: row_to_act,
                         };
-                        rooks_final_position = rooks_initial_position + (-2, 0);
+                        rooks_final_position = rooks_initial_position + (-2 as SizeOfOffset, 0);
                     }
                     Side::QueenSide => {
                         // final position of rook, subtract initial position of rook
@@ -1497,7 +1491,7 @@ impl Board {
                             x: 0,
                             y: row_to_act,
                         };
-                        rooks_final_position = rooks_initial_position + (3, 0);
+                        rooks_final_position = rooks_initial_position + (3 as SizeOfOffset, 0);
                     }
                 }
                 rooks_final_position.value(PiecePerson::Rook { moved: true }, self.turn, weights)
@@ -1589,7 +1583,7 @@ impl Board {
         }
 
         let mut y_of_white_king = BOARD_TILE_DIM - 1;
-        let mut y_of_black_king = 0isize;
+        let mut y_of_black_king = 0;
 
         if player_1_color == PieceColor::Black {
             (y_of_white_king, y_of_black_king) = (y_of_black_king, y_of_white_king);

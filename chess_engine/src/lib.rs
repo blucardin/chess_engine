@@ -14,22 +14,24 @@ extern crate approx;
 extern crate either;
 
 use crate::anti_move::AntiMove;
-use crate::board::Board;
 pub use crate::piece_move::Move;
 use board::BOARD_TILE_DIM;
 use coordinate::Coordinate;
-use pgn_reader::{BufferedReader, Rank, SanPlus, Skip, Visitor};
+use pgn_reader::{Rank, SanPlus, Skip, Visitor};
 use piece::{Piece, PieceColor, PiecePerson};
 // 0.9.0
+
+pub type SizeOfCoordinate = u8;
+pub type SizeOfOffset = i8;
 
 const DEFAULT_BOARD_TILE_SIZE: f32 = 100.0;
 pub const DEFAULT_BOARD_HEIGHT: f32 = BOARD_TILE_DIM as f32 * DEFAULT_BOARD_TILE_SIZE;
 const PIECES_FOLDER: &str = "pieces-basic-png";
 
-const ROOK_SEARCH_OFFSETS: [(isize, isize); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
-const BISHOP_SEARCH_OFFSETS: [(isize, isize); 4] = [(1, 1), (-1, 1), (-1, -1), (1, -1)];
+const ROOK_SEARCH_OFFSETS: [(SizeOfOffset, SizeOfOffset); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+const BISHOP_SEARCH_OFFSETS: [(SizeOfOffset, SizeOfOffset); 4] = [(1, 1), (-1, 1), (-1, -1), (1, -1)];
 
-const KING_SEARCH_OFFSETS: [(isize, isize); 8] = [
+const KING_SEARCH_OFFSETS: [(SizeOfOffset, SizeOfOffset); 8] = [
     (1, -1),
     (1, 0),
     (1, 1),
@@ -40,7 +42,7 @@ const KING_SEARCH_OFFSETS: [(isize, isize); 8] = [
     (-1, 1),
 ];
 
-const KNIGHT_SEARCH_OFFSETS: [(isize, isize); 8] = [
+const KNIGHT_SEARCH_OFFSETS: [(SizeOfOffset, SizeOfOffset); 8] = [
     (1, 2),
     (2, 1),
     (2, -1),
