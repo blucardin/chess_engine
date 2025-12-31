@@ -1,10 +1,12 @@
 // use crate::board_evaluator::BoardEvaluator;
-use chess_engine::{Move, PieceWeights, Transposition};
+use chess_engine::{PieceWeights, Transposition, };
 use quick_cache::unsync::Cache;
 // use crate::board_evaluator::BoardEvaluator;
 use chess_engine::board::Board;
 // use crate::board_evaluator::BoardEvaluator;
 use chess_engine::piece::PieceColor;
+
+use chess_engine::piece_move::Move;
 
 mod board_evaluator;
 

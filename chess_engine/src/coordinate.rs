@@ -6,7 +6,7 @@ use crate::piece::{PieceColor, PiecePerson};
 
 #[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Coordinate {
-    pub x: isize,
+    pub x: isize, // todo: why is this isize again??
     pub y: isize,
 }
 impl Coordinate {

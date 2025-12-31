@@ -751,6 +751,7 @@ fn mouse_button_input(
         // for x in board_resource.board.generate_small_transposition() {
         //     println!("{:?}", x);
         // }
+        // println!("Board {}", board_resource.board);
 
         // redraw all the pieces
         re_draw_pieces(commands, board_resource, window, asset_server, gui_pieces);
