@@ -2,7 +2,11 @@ use crate::anti_move::AntiMove;
 use crate::coordinate::Coordinate;
 use crate::piece::{Piece, PieceColor, PiecePerson};
 use crate::piece_move::Move;
-use crate::{BISHOP_SEARCH_OFFSETS, BOARD_WEIGHTS, BoardSquares, KING_SEARCH_OFFSETS, KNIGHT_SEARCH_OFFSETS, MoveType, Outcome, POSSIBLE_PAWN_PROMOTES, PieceWeights, ROOK_SEARCH_OFFSETS, Side, SmallTransposition, Square, Transposition, SizeOfCoordinate, SizeOfOffset};
+use crate::{
+    BISHOP_SEARCH_OFFSETS, BOARD_WEIGHTS, BoardSquares, KING_SEARCH_OFFSETS, KNIGHT_SEARCH_OFFSETS,
+    MoveType, Outcome, POSSIBLE_PAWN_PROMOTES, PieceWeights, ROOK_SEARCH_OFFSETS, Side,
+    SizeOfCoordinate, SizeOfOffset, SmallTransposition, Square, Transposition,
+};
 use either::Either;
 use pgn_reader::{CastlingSide, San};
 use std::fmt;
@@ -11,13 +15,15 @@ use std::mem::discriminant;
 pub const BOARD_TILE_DIM: SizeOfCoordinate = 8;
 
 #[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub struct Board {
     pub player_1_color: PieceColor,
     pub turn: PieceColor,
     pub squares: BoardSquares,
     pub move_number: i32,
-    white_king_location: Coordinate,
-    black_king_location: Coordinate,
+    pub white_king_location: Coordinate,
+    pub black_king_location: Coordinate,
 }
 
 // custom implementation for unusual values
@@ -25,8 +31,7 @@ impl Board {
     fn get_square_bounds_check(&self, position: &Coordinate) -> Square {
         let x = position.x as usize;
         let y = position.y as usize;
-        if  x >= self.squares.len() || y >= self.squares[0].len()
-        {
+        if x >= self.squares.len() || y >= self.squares[0].len() {
             Square::Boundary
         } else {
             self.squares[x][y]
@@ -59,7 +64,11 @@ impl Board {
         }
     }
 
-    fn cast_ray(&self, position: &Coordinate, offsets: &[(SizeOfOffset, SizeOfOffset)]) -> Vec<Move> {
+    fn cast_ray(
+        &self,
+        position: &Coordinate,
+        offsets: &[(SizeOfOffset, SizeOfOffset)],
+    ) -> Vec<Move> {
         let mut output = Vec::with_capacity(27);
         for offset in offsets {
             let mut sight = *position + *offset;
@@ -81,7 +90,13 @@ impl Board {
         output
     }
 
-    fn check_squares(&self, position: &Coordinate, offsets: &[(SizeOfOffset, SizeOfOffset)]) -> Vec<Move> {
+    /// Similar to cast_ray(), but only checks specific spots around a piece given by offsets.
+    /// Used for checking the squares King and Knight can move to.
+    fn check_squares(
+        &self,
+        position: &Coordinate,
+        offsets: &[(SizeOfOffset, SizeOfOffset)],
+    ) -> Vec<Move> {
         let mut output = Vec::with_capacity(8);
         for offset in offsets {
             let sight = *position + *offset;
@@ -241,7 +256,7 @@ impl Board {
                         self.turn,
                         Coordinate {
                             x: 4,
-                            y: row_to_check,
+                            y: row_to_check, // todo, look at just using the kings position instead of using row to check, initial_position and x=4
                         },
                     )
                 {
@@ -320,239 +335,23 @@ impl Board {
         }
     }
 
-    pub fn get_possible_moves(&self, initial_position: Coordinate) -> Option<Vec<Move>> {
+    pub fn get_possible_moves(&self, initial_position: Coordinate) -> Option<impl Iterator<Item=Move>> {
         if let Square::Filled(piece) = self.get_square_bounds_check(&initial_position) {
             if piece.color != self.turn {
                 // look into making this a part of the if-let statement above
                 return None;
             }
-
             // println!("Generating possible moves for {:?}", piece);
-
-            let mut output = Vec::new();
-
-            Some(self.filter_legal_moves(match piece.piece_person {
-                PiecePerson::Pawn { first_move } => {
-                    let going_up = self.pawn_going_up();
-                    // println!("Going up: {}", going_up);
-                    // println!("self.turn: {:?}", self.turn);
-                    // println!("player_1_color: {:?}", self.player_1_color);
-
-                    let direction: SizeOfOffset = if going_up { -1 } else { 1 };
-
-                    // Check if the pawn is on the last row of its direction, these become 3 separate moves, Knight, Rook, and Queen
-
-                    let mut promote = false;
-
-                    if going_up {
-                        if initial_position.y == 1 {
-                            promote = true;
-                        }
-                    } else {
-                        if initial_position.y == (BOARD_TILE_DIM - 2) {
-                            promote = true;
-                        }
-                    }
-
-                    let front = initial_position + (0, 1 * direction);
-                    // println!("front: {:?}", front);
-                    if self.possible_jump(&front) {
-                        let move_type = MoveType::Jump;
-                        if promote {
-                            for piece_person in POSSIBLE_PAWN_PROMOTES {
-                                output.push(Move::Promote {
-                                    initial_position,
-                                    final_position: front,
-                                    move_type,
-                                    piece_person,
-                                });
-                                // println!("front move added for pawn.");
-                            }
-                        } else {
-                            output.push(Move::Regular {
-                                initial_position,
-                                final_position: front,
-                                move_type,
-                            });
-                        }
-
-                        if first_move.is_none() {
-                            let front = initial_position + (0, 2 * direction);
-                            if self.possible_jump(&front) {
-                                output.push(Move::Regular {
-                                    initial_position,
-                                    final_position: front,
-                                    move_type,
-                                });
-                            }
-                        }
-                    }
-
-                    for i in [-1, 1] {
-                        let front_lr = initial_position + (i, 1 * direction);
-                        if self.possible_take(&front_lr) {
-                            let move_type = MoveType::Take;
-                            if promote {
-                                for piece_person in POSSIBLE_PAWN_PROMOTES {
-                                    output.push(Move::Promote {
-                                        initial_position,
-                                        final_position: front_lr,
-                                        move_type,
-                                        piece_person,
-                                    });
-                                }
-                            } else {
-                                output.push(Move::Regular {
-                                    initial_position,
-                                    final_position: front_lr,
-                                    move_type,
-                                });
-                            }
-                        }
-                    }
-
-                    let row_of_passant = if going_up { 3 } else { BOARD_TILE_DIM - 4 };
-
-                    // check if we are on the rank of en passant
-                    if initial_position.y == row_of_passant {
-                        // check if the square beside you is filled with a pawn that just moved, if so add a new en passant take move to capture it
-
-                        for x_offset in [1, -1] {
-                            if let Square::Filled(Piece {
-                                color,
-                                piece_person: PiecePerson::Pawn { first_move },
-                            }) =
-                                self.get_square_bounds_check(&(initial_position + (x_offset, 0)))
-                            {
-                                if color != self.turn {
-                                    if let Some(first_move_number) = first_move {
-                                        if first_move_number == self.move_number - 1 {
-                                            output.push(Move::EnPassant {
-                                                initial_position,
-                                                final_position: initial_position
-                                                    + (x_offset, direction),
-                                            });
-                                            // println!("PASSANT");
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // println!("Output before king filter {:?}", output);
-                    output
-                }
-                PiecePerson::Rook { .. } => self.cast_ray(&initial_position, &ROOK_SEARCH_OFFSETS),
-                PiecePerson::Bishop => self.cast_ray(&initial_position, &BISHOP_SEARCH_OFFSETS),
-                PiecePerson::Queen => self.cast_ray(
-                    &initial_position,
-                    &[ROOK_SEARCH_OFFSETS, BISHOP_SEARCH_OFFSETS].concat(),
-                ),
-                PiecePerson::King { moved: king_moved } => {
-                    output = self.check_squares(&initial_position, &KING_SEARCH_OFFSETS);
-
-                    // determine if we are on the white or black side of the board
-                    let row_to_check = if self.pawn_going_up() {
-                        BOARD_TILE_DIM - 1
-                    } else {
-                        0
-                    };
-
-                    // check that the king hasn't moved
-                    if king_moved == false
-                        && !self.check_check(
-                            self.turn,
-                            Coordinate {
-                                x: 4,
-                                y: row_to_check, // todo, look at just using the kings position instead of using row to check, initial_position and x=4
-                            },
-                        )
-                    {
-                        // check king side
-                        // check that the rook hasn't moved
-                        if let Square::Filled(Piece {
-                            color: _color,
-                            piece_person: PiecePerson::Rook { moved: false },
-                        }) = self.get_square_bounds_check(&Coordinate {
-                            x: BOARD_TILE_DIM - 1,
-                            y: row_to_check,
-                        }) {
-                            let mut possible_castle = true;
-
-                            for x in [5, 6] {
-                                let intermediate = Coordinate { x, y: row_to_check };
-
-                                // check that the intermediate Squares are vacant,
-                                // check that the intermediate Squares are not under attack
-
-                                if self[intermediate] != Square::Empty
-                                    || self.check_check(self.turn, intermediate)
-                                {
-                                    possible_castle = false;
-                                    break;
-                                }
-                            }
-                            // add the castle move to output
-                            if possible_castle {
-                                output.push(Move::Castle {
-                                    side: Side::KingsSide,
-                                });
-                            }
-                        }
-
-                        // check Queen side
-                        if let Square::Filled(Piece {
-                            color: _color,
-                            piece_person: PiecePerson::Rook { moved: false },
-                        }) = self.get_square_bounds_check(&Coordinate {
-                            x: 0,
-                            y: row_to_check,
-                        }) {
-                            let mut possible_castle = true;
-
-                            for x in [2, 3] {
-                                let intermediate = Coordinate { x, y: row_to_check };
-
-                                // check that the intermediate Squares are vacant,
-                                // check that the intermediate Squares are not under attack
-
-                                if self[intermediate] != Square::Empty
-                                    || self.check_check(self.turn, intermediate)
-                                {
-                                    possible_castle = false;
-                                    break;
-                                }
-                            }
-
-                            if self.squares[1][row_to_check as usize] != Square::Empty {
-                                possible_castle = false;
-                            }
-
-                            // add the castle move to output
-                            if possible_castle {
-                                output.push(Move::Castle {
-                                    side: Side::QueenSide,
-                                });
-                            }
-                        }
-                    }
-
-                    output
-                }
-                PiecePerson::Knight => {
-                    self.check_squares(&initial_position, &KNIGHT_SEARCH_OFFSETS)
-                }
-            }))
+            Some(self.filter_legal_moves(
+                self.get_possible_moves_unchecked(initial_position, &piece.piece_person).into_iter(),
+            ))
         } else {
             None
         }
     }
 
-    fn filter_legal_moves(&self, moves: Vec<Move>) -> Vec<Move> {
+    pub fn filter_legal_moves(&self, moves: impl Iterator<Item=Move>) -> impl Iterator<Item=Move> {
         moves
-            .into_iter()
             .filter(|piece_move| {
                 let mut test_board = self.clone();
                 // println!("{:?}", piece_move);
@@ -561,14 +360,31 @@ impl Board {
                 !test_board.check_check(self.turn, test_board.locate_king(self.turn))
                 // todo: Replace self.turn with test-board.turn.opposite() as it makes more sense
             })
-            .collect()
+    }
+
+    /// Filter moves for those that do not cause check without cloning the board every time
+    pub fn filter_legal_moves_iter(&self, moves: impl Iterator<Item=Move>) -> impl Iterator<Item=Move> {
+        let mut board = self.clone(); // todo: rewrite the main code to just mutate self without cloning into a temporary board
+        // todo: try to do it with unsafe that gaurentees that self is immutable across each check
+        moves
+            .filter(move |piece_move| { // todo: investigate this move
+                let anti_move = AntiMove::from_piece_move(&board, piece_move);
+                // println!("{:?}", piece_move);
+                board.apply_move(&piece_move);
+
+                let causes_check = board.check_check(self.turn, board.locate_king(self.turn));
+
+                board.apply_anti_move(&anti_move);
+
+                !causes_check // we want the ones that don't cause check
+            })
     }
 
     pub fn get_all_moves_for_turn(&self) -> Vec<Move> {
-        let mut output = Vec::new();
+        let mut output = Vec::new(); // todo: this should be vec with capacity like 40
         // todo: Make this faster by not enumerating over everything, just looping
-        for (idx, row) in self.squares.iter().enumerate() {
-            for (idy, _) in row.iter().enumerate() {
+        for idx in 0..self.squares.len() {
+            for idy in 0..self.squares[0].len() {
                 if let Some(piece_moves) = self.get_possible_moves(Coordinate {
                     x: idx as SizeOfCoordinate,
                     y: idy as SizeOfCoordinate,
@@ -580,8 +396,9 @@ impl Board {
         output
     }
 
-    pub fn get_all_moves_for_turn_iter(&self) -> impl Iterator {
-        // todo: untested
+    /// Get all the possible moves of the current player using iterators (not loops)
+    /// Includes moves that cause check
+    pub fn get_all_moves_for_turn_unchecked_iter(&self) -> impl Iterator<Item=Move> {
         self.squares
             .into_iter()
             .enumerate()
@@ -611,6 +428,11 @@ impl Board {
                     &piece,
                 )
             })
+    }
+
+    /// gets all the moves for the current turn that do not cause check by using iterators
+    pub fn get_all_moves_for_turn_iter(&self) -> impl Iterator<Item=Move> {
+        self.filter_legal_moves_iter(self.get_all_moves_for_turn_unchecked_iter())
     }
 
     pub fn locate_king(&self, search_color: PieceColor) -> Coordinate {
@@ -866,6 +688,17 @@ impl Board {
             } => {
                 self[original_position] = original_square;
                 self[final_position] = square_taken;
+
+                if let Square::Filled(Piece { color, piece_person : PiecePerson::King {..} }) = self[original_position] {
+                    match color {
+                        PieceColor::Black => {
+                            self.black_king_location = original_position;
+                        }
+                        PieceColor::White => {
+                            self.white_king_location = original_position;
+                        }
+                    }
+                }
             }
             AntiMove::Castle { side } => {
                 let row_to_act = if !self.pawn_going_up() {
@@ -896,6 +729,8 @@ impl Board {
                 // println!("Side: {:?}", side);
                 // println!("Before Antimove Internal: \n{}", self);
 
+                let initial_king_coord = Coordinate { x: initial_kings_x as SizeOfCoordinate, y: row_to_act as SizeOfCoordinate};
+
                 self.squares[final_kings_x][row_to_act] = Square::Empty;
                 self.squares[final_rooks_x][row_to_act] = Square::Empty;
 
@@ -908,6 +743,16 @@ impl Board {
                     color: self.turn.opposite(),
                     piece_person: PiecePerson::Rook { moved: false },
                 });
+
+                match self.turn.opposite() {
+                    PieceColor::Black => {
+                        self.black_king_location = initial_king_coord ;
+                    }
+                    PieceColor::White => {
+                        self.white_king_location = initial_king_coord;
+                    }
+                }
+
                 // println!("After Antimove Internal: \n{}", self);
             }
             AntiMove::EnPassant {
@@ -988,7 +833,8 @@ impl Board {
                         } = piece_move
                         {
                             if final_position.x == to.file() as SizeOfCoordinate
-                                && final_position.y == crate::rank_to_y(to.rank()) as SizeOfCoordinate
+                                && final_position.y
+                                    == crate::rank_to_y(to.rank()) as SizeOfCoordinate
                                 && (*move_type == MoveType::Take) == capture
                                 && piece_person.compare_with_role(role)
                             {
@@ -1009,7 +855,8 @@ impl Board {
                         } = piece_move
                         {
                             if final_position.x == to.file() as SizeOfCoordinate
-                                && final_position.y == crate::rank_to_y(to.rank()) as SizeOfCoordinate
+                                && final_position.y
+                                    == crate::rank_to_y(to.rank()) as SizeOfCoordinate
                             {
                                 move_to_apply = Some(piece_move);
                                 break;
@@ -1025,7 +872,8 @@ impl Board {
                         } = piece_move
                         {
                             if final_position.x == to.file() as SizeOfCoordinate
-                                && final_position.y == crate::rank_to_y(to.rank()) as SizeOfCoordinate
+                                && final_position.y
+                                    == crate::rank_to_y(to.rank()) as SizeOfCoordinate
                                 && (*move_type == MoveType::Take) == capture
                             {
                                 move_to_apply = Some(piece_move);
@@ -1139,7 +987,7 @@ impl Board {
     /// Determine the outcome of a game, either checkmate one color wins, draw, or playing.
     /// I think I forgot to integrate sufficient material into draw calculation.
     pub fn outcome(&self) -> Outcome {
-        let possible_moves = self.get_all_moves_for_turn();
+        let possible_moves: Vec<Move> = self.get_all_moves_for_turn();
         // println!("Outcome Possible Moves: {:?} \nTurn {:?}", possible_moves, self.turn);
         // println!("Outcome Turn {:?}", self.turn);
 

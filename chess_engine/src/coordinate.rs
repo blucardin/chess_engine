@@ -5,7 +5,7 @@ use crate::board::BOARD_TILE_DIM;
 use crate::piece::{PieceColor, PiecePerson};
 
 #[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug)]
-pub struct Coordinate {
+pub struct Coordinate { // todo: remove this pub and use a "new_unchecked" constructor function along with a new constructor function to establish that this value is below BoardTileSize.  
     pub x: SizeOfCoordinate,
     pub y: SizeOfCoordinate,
 }

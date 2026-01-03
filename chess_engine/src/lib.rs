@@ -270,6 +270,7 @@ mod tests {
             type Result = usize;
 
             fn begin_game(&mut self) {
+                self.anti_moves.clear();
                 self.board = Board::new(PieceColor::White);
             }
 
@@ -302,6 +303,12 @@ mod tests {
                 // }
 
                 assert_eq!(board_before_move.squares, board_after_anti_move.squares);
+                assert_eq!(board_before_move.turn, board_after_anti_move.turn);
+                assert_eq!(board_before_move.white_king_location, board_after_anti_move.white_king_location);
+                assert_eq!(board_before_move.black_king_location, board_after_anti_move.black_king_location);
+                assert_eq!(board_before_move.move_number, board_after_anti_move.move_number);
+
+                assert_eq!(board_before_move, board_after_anti_move);
             }
             fn begin_variation(&mut self) -> Skip {
                 Skip(true) // stay in the mainline
@@ -317,10 +324,15 @@ mod tests {
                 // println!("After antimoves: \n{}", self.board);
                 // println!("New Board: \n{}", Board::new(PieceColor::White));
 
-                assert_eq!(self.board.squares, Board::new(PieceColor::White).squares);
+                let new_board = Board::new(PieceColor::White);
 
-                self.board = Board::new(PieceColor::White);
-                self.anti_moves.clear();
+                assert_eq!(new_board.squares, self.board.squares);
+                assert_eq!(new_board.turn, self.board.turn);
+                assert_eq!(new_board.white_king_location, self.board.white_king_location);
+                assert_eq!(new_board.black_king_location, self.board.black_king_location);
+                assert_eq!(new_board.move_number, self.board.move_number);
+
+                assert_eq!(new_board, Board::new(PieceColor::White));
 
                 1
             }
@@ -367,12 +379,14 @@ mod tests {
     fn test_checkmate() {
         struct MoveCounter {
             board: Board,
+            game: i32,
         }
 
         impl MoveCounter {
             fn new() -> MoveCounter {
                 MoveCounter {
                     board: Board::new(PieceColor::White),
+                    game: 0
                 }
             }
         }
@@ -394,11 +408,12 @@ mod tests {
             }
 
             fn end_game(&mut self) -> Self::Result {
+                self.game += 1;
                 1
             }
 
             fn outcome(&mut self, outcome: Option<pgn_reader::Outcome>) {
-                assert_eq!(self.board.outcome().to_option_pgn_reader_outcome(), outcome);
+                assert_eq!(self.board.outcome().to_option_pgn_reader_outcome(), outcome, "Board outcome did not match expected outcome \n{} \nCode calculated: {:?} \nExpected {} \nGame: {}", self.board, self.board.outcome().to_option_pgn_reader_outcome(), outcome.unwrap(), self.game);
             }
         }
 

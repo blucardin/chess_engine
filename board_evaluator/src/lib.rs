@@ -874,7 +874,7 @@ impl ChessEngine {
 
         if depth == 1 {
 
-            let possible_moves = board.get_all_moves_for_turn();
+            let possible_moves : Vec<_> = board.get_all_moves_for_turn().collect();
 
             if possible_moves.len() == 0 {
                 if !board.check_check(board.turn, board.locate_king(board.turn)) {
@@ -955,7 +955,7 @@ impl ChessEngine {
 
         if depth == 1 {
 
-            let possible_moves = board.get_all_moves_for_turn();
+            let possible_moves : Vec<_> = board.get_all_moves_for_turn().collect();
 
             if possible_moves.len() == 0 {
                 if !board.check_check(board.turn, board.locate_king(board.turn)) {

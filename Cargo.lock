@@ -2173,6 +2173,7 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "bincode",
+ "criterion 0.8.1",
  "either",
  "pgn-reader 0.27.0",
  "serde",

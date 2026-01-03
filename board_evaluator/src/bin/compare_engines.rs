@@ -94,7 +94,7 @@ fn main() {
 
                     if past_boards.contains(&(board.squares, turn.clone())) {
                         loops += 1;
-                        board.apply_move(&board.get_all_moves_for_turn().choose(&mut rng).unwrap());
+                        board.apply_move(&board.get_all_moves_for_turn().collect::<Vec<_>>().choose(&mut rng).unwrap());
                         turn = turn.flip();
                     } else {
                         past_boards.insert((board.squares, turn.clone()));
