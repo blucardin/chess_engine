@@ -26,6 +26,6 @@ criterion = { version = "0.8.1", features = ["html_reports"] }
 name = "filter_legal_moves"
 harness = false
 
-#[[bench]]
-#name = "get_all_move_for_turn"
-#harness = false
+[[bench]]
+name = "get_possible_moves_unchecked"
+harness = false

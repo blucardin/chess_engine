@@ -46,18 +46,13 @@ impl Visitor for MoveCounter {
     }
 }
 
-pub fn test_filter_legal_moves<F>(board: &Board, filter: F, ) where F : Fn(Vec<Move>) -> Vec<Move>  {
-    let move_accumulator : Vec<Move> = Vec::with_capacity(80);
-
-}
-
 pub fn criterion_benchmark(c: &mut Criterion) {
     // https://lichess.org/4si2z6iq
 
     let pgn = br#"
     1. e4 Nc6 2. d4 e5 3. d5 Nce7 4. Nf3 Ng6 {5. Bc4 Nf6 6. Nc3 Bc5 7. O-O h6 8. Be3 d6 9. Bxc5 dxc5 10. a3 a6 11. b4 b5 12. Bb3 c4 13. Ba2 Qd6 14. a4 O-O 15. axb5 Qxb4 16. Qd2 axb5 17. Rfb1 Qc5 18. Rxb5 Qd6 19. Rbb1 Rd8 20. Bxc4}
     "#;
-// todo: make the reader get a list of vectors and call it once after every move with throughput=number of moves to get some cooler stuff.
+
     let mut reader = BufferedReader::new_cursor(&pgn[..]);
 
     let mut counter = MoveCounter::new();

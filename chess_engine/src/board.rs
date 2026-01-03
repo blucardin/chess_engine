@@ -104,7 +104,7 @@ impl Board {
                 output.push(Move::Regular {
                     initial_position: *position,
                     final_position: sight,
-                    move_type: move_type,
+                    move_type,
                 });
             }
         }
@@ -250,25 +250,23 @@ impl Board {
                     0
                 };
 
-                // check that the king hasn't moved
+                // check that the king hasn't moved and is not in check
+                // println!("Inital king position: {:?} \nCoordinate to check {:?} \n",initial_position, row_to_check );
                 if *king_moved == false
                     && !self.check_check(
                         self.turn,
-                        Coordinate {
-                            x: 4,
-                            y: row_to_check, // todo, look at just using the kings position instead of using row to check, initial_position and x=4
-                        },
+                        initial_position,
                     )
                 {
                     // check king side
                     // check that the rook hasn't moved
                     if let Square::Filled(Piece {
-                        color: _color,
                         piece_person: PiecePerson::Rook { moved: false },
-                    }) = self.get_square_bounds_check(&Coordinate {
+                        ..
+                    }) = (self[Coordinate {
                         x: BOARD_TILE_DIM - 1,
                         y: row_to_check,
-                    }) {
+                    }]) {
                         let mut possible_castle = true;
 
                         for x in [5, 6] {
@@ -294,12 +292,12 @@ impl Board {
 
                     // check Queen side
                     if let Square::Filled(Piece {
-                        color: _color,
                         piece_person: PiecePerson::Rook { moved: false },
-                    }) = self.get_square_bounds_check(&Coordinate {
+                        ..
+                    }) = (self[Coordinate {
                         x: 0,
                         y: row_to_check,
-                    }) {
+                    }]) {
                         let mut possible_castle = true;
 
                         for x in [2, 3] {
