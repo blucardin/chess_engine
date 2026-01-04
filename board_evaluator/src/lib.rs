@@ -1082,7 +1082,7 @@ mod tests {
                 break;
             }
         }
-        println!("Model against itself did {} moves. With {} differences.", board.move_number, differences); // it takes about 41 moves to get to 7 differences.
+        println!("Model against itself did UNKNOWN moves. With {} differences.", differences); // it takes about 41 moves to get to 7 differences.
     }
 }
 

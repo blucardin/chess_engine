@@ -89,6 +89,7 @@ pub enum Square {
 #[derive(Encode, Decode, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum MoveType {
     Jump,
+    DoubleJump,
     Take,
 }
 
@@ -306,7 +307,6 @@ mod tests {
                 assert_eq!(board_before_move.turn, board_after_anti_move.turn);
                 assert_eq!(board_before_move.white_king_location, board_after_anti_move.white_king_location);
                 assert_eq!(board_before_move.black_king_location, board_after_anti_move.black_king_location);
-                assert_eq!(board_before_move.move_number, board_after_anti_move.move_number);
 
                 assert_eq!(board_before_move, board_after_anti_move);
             }
@@ -330,7 +330,6 @@ mod tests {
                 assert_eq!(new_board.turn, self.board.turn);
                 assert_eq!(new_board.white_king_location, self.board.white_king_location);
                 assert_eq!(new_board.black_king_location, self.board.black_king_location);
-                assert_eq!(new_board.move_number, self.board.move_number);
 
                 assert_eq!(new_board, Board::new(PieceColor::White));
 

@@ -34,7 +34,7 @@ impl PieceColor {
 #[derive(Encode, Decode, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[repr(i8)]
 pub enum PiecePerson {
-    Pawn { first_move: Option<i32> } = 1,
+    Pawn = 1,
     Rook { moved: bool } = 3,
     Knight = 2,
     Bishop = 4,
@@ -44,7 +44,7 @@ pub enum PiecePerson {
 
 impl PiecePerson {
     pub fn new_pawn() -> Self {
-        PiecePerson::Pawn { first_move: None }
+        PiecePerson::Pawn
     }
 
     pub fn compare_with_role(&self, role: Role) -> bool {
@@ -79,7 +79,7 @@ impl PiecePerson {
 
     pub fn file_string(&self) -> String {
         String::from(match self {
-            PiecePerson::Pawn { first_move: _ } => "pawn",
+            PiecePerson::Pawn  => "pawn",
             PiecePerson::Rook { .. } => "rook",
             PiecePerson::Knight => "knight",
             PiecePerson::Bishop => "bishop",
